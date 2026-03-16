@@ -1,4 +1,4 @@
-﻿module.exports = {
+module.exports = {
   extends: ['@commitlint/config-conventional'],
   rules: {
     'type-enum': [
@@ -22,4 +22,3 @@
     'body-max-line-length': [2, 'always', 200],
   },
 }
-"@ | Set-Content -Path "commitlint.config.js" -Encoding UTF8
