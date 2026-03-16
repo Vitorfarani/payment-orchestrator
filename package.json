@@ -65,6 +65,11 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   },
+  "overrides": {
+    "cross-spawn": "^7.0.5",
+    "underscore": "^1.13.7",
+    "undici": "^6.21.2"
+  },
   "lint-staged": {
     "src/**/*.ts": [
       "eslint --max-warnings 0",
