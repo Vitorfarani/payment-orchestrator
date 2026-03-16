@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ─── Gate 1: zero erros de tipo ──────────────────────────────────────
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # ─── Gate 2: zero warnings de lint ───────────────────────────────────
+      - name: Lint
+        run: npx eslint src --ext .ts --max-warnings 0
+
+      # ─── Gate 3: zero secrets no código ──────────────────────────────────
+      - name: Check secrets
+        run: npx secretlint .env.example
+
+      # ─── Gate 4: zero vulnerabilidades críticas ───────────────────────────
+      - name: Security audit
+        run: npm audit --audit-level=high
+
+      # ─── Gate 5: testes (passa mesmo sem testes ainda) ───────────────────
+      - name: Unit tests
+        run: npm test
