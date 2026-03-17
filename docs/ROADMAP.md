@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 2 concluída. Iniciando Fase 3.
+> **Última atualização:** Fase 3 concluída. Iniciando Fase 4.
 
 ---
 
@@ -13,8 +13,8 @@
 Fase 0 — Documentação    ✅ CONCLUÍDA
 Fase 1 — Fundação        ✅ CONCLUÍDA
 Fase 2 — Domain Layer    ✅ CONCLUÍDA
-Fase 3 — Banco de Dados  🔄 EM ANDAMENTO
-Fase 4 — Infrastructure  ⏳ AGUARDANDO
+Fase 3 — Banco de Dados  ✅ CONCLUÍDA
+Fase 4 — Infrastructure  🔄 EM ANDAMENTO
 Fase 5 — Use Cases       ⏳ AGUARDANDO
 Fase 6 — Web Layer       ⏳ AGUARDANDO
 Fase 7 — Frontend        ⏳ AGUARDANDO
