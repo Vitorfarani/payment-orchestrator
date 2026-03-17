@@ -106,6 +106,68 @@ describe('Payment.transition()', () => {
   })
 })
 
+describe('Payment — gateway info', () => {
+  it('setGatewayInfo persiste gateway, gatewayPaymentId e gatewayResponse', () => {
+    const result = makePayment()
+    if (!result.ok) return
+    const p = result.value
+    const response = { id: 'pi_123', status: 'requires_capture' }
+    p.setGatewayInfo('STRIPE', 'pi_123', response)
+    expect(p.gateway).toBe('STRIPE')
+    expect(p.gatewayPaymentId).toBe('pi_123')
+    expect(p.gatewayResponse).toBe(response)
+  })
+
+  it('setGatewayInfo atualiza updatedAt', () => {
+    const result = makePayment()
+    if (!result.ok) return
+    const p = result.value
+    const before = p.updatedAt
+    p.setGatewayInfo('ASAAS', 'pay_abc', {})
+    expect(p.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime())
+  })
+})
+
+describe('Payment — timestamps de transição', () => {
+  it('authorizedAt é setado ao transicionar para AUTHORIZED', () => {
+    const result = makePayment()
+    if (!result.ok) return
+    const p = result.value
+    expect(p.authorizedAt).toBeUndefined()
+    p.transition('PROCESSING')
+    p.transition('AUTHORIZED')
+    expect(p.authorizedAt).toBeInstanceOf(Date)
+  })
+
+  it('capturedAt é setado ao transicionar para CAPTURED', () => {
+    const result = makePayment()
+    if (!result.ok) return
+    const p = result.value
+    capturar(p)
+    expect(p.capturedAt).toBeInstanceOf(Date)
+  })
+
+  it('refundedAt é setado ao transicionar para REFUNDED', () => {
+    const result = makePayment()
+    if (!result.ok) return
+    const p = result.value
+    capturar(p)
+    p.transition('REFUNDED')
+    expect(p.refundedAt).toBeInstanceOf(Date)
+  })
+
+  it('failedAt é setado ao transicionar para FAILED', () => {
+    const result = makePayment()
+    if (!result.ok) return
+    const p = result.value
+    p.transition('PROCESSING')
+    p.transition('FAILED', { errorCode: 'card_declined', errorMessage: 'Cartão recusado' })
+    expect(p.failedAt).toBeInstanceOf(Date)
+    expect(p.errorCode).toBe('card_declined')
+    expect(p.errorMessage).toBe('Cartão recusado')
+  })
+})
+
 describe('Payment — domain events por transição', () => {
   it('PROCESSING → REQUIRES_ACTION gera PaymentRequiresAction', () => {
     const result = makePayment()

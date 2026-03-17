@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts --max-warnings 0",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "jest --testPathPattern='src/.*\\.spec\\.ts$' --passWithNoTests",
+    "test": "jest --testPathPattern='\\.test\\.ts$' --passWithNoTests",
     "test:int": "jest --testPathPattern='src/.*\\.integration\\.spec\\.ts$' --passWithNoTests --runInBand",
     "test:contract": "jest --testPathPattern='src/.*\\.contract\\.spec\\.ts$' --passWithNoTests",
     "test:e2e": "jest --testPathPattern='src/.*\\.e2e\\.spec\\.ts$' --passWithNoTests --runInBand",

@@ -59,14 +59,15 @@ afterAll(async () => {
 // ── Helpers para inserção de fixtures ─────────────────────────────────────────
 
 async function insertSeller(): Promise<string> {
-  const rows = await db('sellers')
+  const [row] = await db('sellers')
     .insert({ name: 'Seller Teste', document: `doc-${Date.now()}`, email: `s${Date.now()}@test.com` })
     .returning('id') as Array<{ id: string }>
-  return rows[0].id
+  if (!row) throw new Error('insertSeller: nenhuma linha retornada')
+  return row.id
 }
 
 async function insertPayment(sellerId: string): Promise<string> {
-  const rows = await db('payments')
+  const [row] = await db('payments')
     .insert({
       id:               db.raw('gen_random_uuid()'),
       seller_id:        sellerId,
@@ -74,18 +75,20 @@ async function insertPayment(sellerId: string): Promise<string> {
       idempotency_key:  `idem-${Date.now()}-${Math.random()}`,
     })
     .returning('id') as Array<{ id: string }>
-  return rows[0].id
+  if (!row) throw new Error('insertPayment: nenhuma linha retornada')
+  return row.id
 }
 
 async function insertJournalEntry(paymentId: string): Promise<string> {
-  const rows = await db('journal_entries')
+  const [row] = await db('journal_entries')
     .insert({
       id:          db.raw('gen_random_uuid()'),
       payment_id:  paymentId,
       description: 'PaymentCaptured',
     })
     .returning('id') as Array<{ id: string }>
-  return rows[0].id
+  if (!row) throw new Error('insertJournalEntry: nenhuma linha retornada')
+  return row.id
 }
 
 // ── Testes ────────────────────────────────────────────────────────────────────
@@ -178,8 +181,9 @@ describe('migrations', () => {
         .where({ resource_id: resourceId })
         .select('action') as Array<{ action: string }>
 
+      const [first] = rows
       expect(rows).toHaveLength(1)
-      expect(rows[0].action).toBe('settlement.processed')
+      expect(first?.action).toBe('settlement.processed')
     })
   })
 })

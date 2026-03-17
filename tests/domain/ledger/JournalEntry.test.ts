@@ -15,8 +15,9 @@ const line = (
 // CREDIT 3001 Revenue Platform       800  ← comissão da plataforma
 // CREDIT 2001 Payable Seller        9.200  ← devemos ao vendedor
 const makeInput = () => ({
-  id:        JournalEntryId.create(),
-  paymentId: PaymentId.create(),
+  id:          JournalEntryId.create(),
+  paymentId:   PaymentId.create(),
+  description: 'PaymentCaptured',
   lines: [
     line(AccountCode.RECEIVABLE_GATEWAY, 'DEBIT',  Cents.of(10000)),
     line(AccountCode.REVENUE_PLATFORM,   'CREDIT', Cents.of(800)),
@@ -83,7 +84,7 @@ describe('JournalEntry.create() — caminho feliz', () => {
     expect(result.value.lines).toHaveLength(3)
   })
 
-  it('expõe id, paymentId, lines e createdAt corretamente', () => {
+  it('expõe id, paymentId, lines, description, occurredAt e createdAt corretamente', () => {
     const input  = makeInput()
     const result = JournalEntry.create(input)
     if (!result.ok) return
@@ -91,7 +92,25 @@ describe('JournalEntry.create() — caminho feliz', () => {
     expect(entry.id).toBe(input.id)
     expect(entry.paymentId).toBe(input.paymentId)
     expect(entry.lines).toHaveLength(3)
+    expect(entry.description).toBe('PaymentCaptured')
+    expect(entry.occurredAt).toBeInstanceOf(Date)
     expect(entry.createdAt).toBeInstanceOf(Date)
+  })
+
+  it('occurredAt usa o valor fornecido quando passado explicitamente', () => {
+    const customDate = new Date('2024-01-15T10:00:00Z')
+    const result = JournalEntry.create({ ...makeInput(), occurredAt: customDate })
+    if (!result.ok) return
+    expect(result.value.occurredAt).toBe(customDate)
+  })
+
+  it('occurredAt defaults para now() quando omitido', () => {
+    const before = new Date()
+    const result = JournalEntry.create(makeInput())
+    const after  = new Date()
+    if (!result.ok) return
+    expect(result.value.occurredAt.getTime()).toBeGreaterThanOrEqual(before.getTime())
+    expect(result.value.occurredAt.getTime()).toBeLessThanOrEqual(after.getTime())
   })
 
   it('entradas com apenas 2 linhas também são válidas', () => {

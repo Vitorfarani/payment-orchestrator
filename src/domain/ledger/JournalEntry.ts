@@ -11,16 +11,20 @@ export interface JournalLine {
 }
 
 interface JournalEntryProps {
-  readonly id:        JournalEntryId
-  readonly paymentId: PaymentId
-  readonly lines:     readonly JournalLine[]
-  readonly createdAt: Date
+  readonly id:          JournalEntryId
+  readonly paymentId:   PaymentId
+  readonly lines:       readonly JournalLine[]
+  readonly description: string    // ex: 'PaymentCaptured', 'Refund' — contexto contábil
+  readonly occurredAt:  Date      // quando o evento de negócio aconteceu (≠ createdAt)
+  readonly createdAt:   Date
 }
 
 interface CreateJournalEntryInput {
-  id:        JournalEntryId
-  paymentId: PaymentId
-  lines:     readonly JournalLine[]
+  id:           JournalEntryId
+  paymentId:    PaymentId
+  lines:        readonly JournalLine[]
+  description:  string
+  occurredAt?:  Date    // opcional — defaults para now() se omitido
 }
 
 export class JournalEntry {
@@ -30,10 +34,12 @@ export class JournalEntry {
     this.props = props
   }
 
-  get id():        JournalEntryId          { return this.props.id }
-  get paymentId(): PaymentId               { return this.props.paymentId }
-  get lines():     readonly JournalLine[]  { return this.props.lines }
-  get createdAt(): Date                    { return this.props.createdAt }
+  get id():          JournalEntryId          { return this.props.id }
+  get paymentId():   PaymentId               { return this.props.paymentId }
+  get lines():       readonly JournalLine[]  { return this.props.lines }
+  get description(): string                  { return this.props.description }
+  get occurredAt():  Date                    { return this.props.occurredAt }
+  get createdAt():   Date                    { return this.props.createdAt }
 
   static create(input: CreateJournalEntryInput): Result<JournalEntry, ValidationError> {
     if (input.lines.length < 2) {
@@ -62,6 +68,11 @@ export class JournalEntry {
       ))
     }
 
-    return ok(new JournalEntry({ ...input, createdAt: new Date() }))
+    const now = new Date()
+    return ok(new JournalEntry({
+      ...input,
+      occurredAt: input.occurredAt ?? now,
+      createdAt:  now,
+    }))
   }
 }

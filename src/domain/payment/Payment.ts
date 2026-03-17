@@ -29,13 +29,32 @@ interface PaymentProps {
   status:                  PaymentStatus
   readonly createdAt:      Date
   updatedAt:               Date
+
+  // Gateway — preenchido após comunicação com o provider
+  gateway?:          string
+  gatewayPaymentId?: string
+  gatewayResponse?:  Record<string, unknown>
+
+  // Metadados externos do caller (order_id, customer_id, etc.)
+  metadata?:         Record<string, unknown>
+
+  // Erros — preenchidos quando status = FAILED
+  errorCode?:        string
+  errorMessage?:     string
+
+  // Timestamps das transições relevantes — auditoria e reconciliação
+  authorizedAt?:     Date
+  capturedAt?:       Date
+  refundedAt?:       Date
+  failedAt?:         Date
 }
 
 interface CreatePaymentInput {
-  id:             PaymentId
-  sellerId:       SellerId
-  amount:         Cents
-  idempotencyKey: IdempotencyKey
+  id:              PaymentId
+  sellerId:        SellerId
+  amount:          Cents
+  idempotencyKey:  IdempotencyKey
+  metadata?:       Record<string, unknown>
 }
 
 export class Payment {
@@ -47,14 +66,24 @@ export class Payment {
   }
 
   // — Getters —
-  get id():             PaymentId    { return this.props.id }
-  get sellerId():       SellerId     { return this.props.sellerId }
-  get amount():         Cents        { return this.props.amount }
-  get status():         PaymentStatus { return this.props.status }
-  get idempotencyKey(): IdempotencyKey { return this.props.idempotencyKey }
-  get createdAt():      Date         { return this.props.createdAt }
-  get updatedAt():      Date         { return this.props.updatedAt }
-  get domainEvents():   readonly PaymentDomainEvent[] { return this.events }
+  get id():               PaymentId                          { return this.props.id }
+  get sellerId():         SellerId                           { return this.props.sellerId }
+  get amount():           Cents                              { return this.props.amount }
+  get status():           PaymentStatus                      { return this.props.status }
+  get idempotencyKey():   IdempotencyKey                     { return this.props.idempotencyKey }
+  get createdAt():        Date                               { return this.props.createdAt }
+  get updatedAt():        Date                               { return this.props.updatedAt }
+  get domainEvents():     readonly PaymentDomainEvent[]      { return this.events }
+  get gateway():          string | undefined                 { return this.props.gateway }
+  get gatewayPaymentId(): string | undefined                 { return this.props.gatewayPaymentId }
+  get gatewayResponse():  Record<string, unknown> | undefined { return this.props.gatewayResponse }
+  get metadata():         Record<string, unknown> | undefined { return this.props.metadata }
+  get errorCode():        string | undefined                 { return this.props.errorCode }
+  get errorMessage():     string | undefined                 { return this.props.errorMessage }
+  get authorizedAt():     Date | undefined                   { return this.props.authorizedAt }
+  get capturedAt():       Date | undefined                   { return this.props.capturedAt }
+  get refundedAt():       Date | undefined                   { return this.props.refundedAt }
+  get failedAt():         Date | undefined                   { return this.props.failedAt }
 
   // — Factory —
   static create(input: CreatePaymentInput): Result<Payment, ValidationError> {
@@ -95,12 +124,35 @@ export class Payment {
       ))
     }
 
+    const now = new Date()
     this.props.status    = newStatus
-    this.props.updatedAt = new Date()
+    this.props.updatedAt = now
+
+    // Timestamps de transição — auditoria e reconciliação financeira
+    if (newStatus === 'AUTHORIZED')                              { this.props.authorizedAt = now }
+    if (newStatus === 'CAPTURED')                               { this.props.capturedAt   = now }
+    if (newStatus === 'REFUNDED' || newStatus === 'PARTIALLY_REFUNDED') { this.props.refundedAt = now }
+    if (newStatus === 'FAILED') {
+      this.props.failedAt = now
+      if (typeof metadata?.['errorCode']    === 'string') { this.props.errorCode    = metadata['errorCode']    }
+      if (typeof metadata?.['errorMessage'] === 'string') { this.props.errorMessage = metadata['errorMessage'] }
+    }
 
     this.events.push(this.buildEvent(newStatus, metadata))
 
     return ok(undefined)
+  }
+
+  // Chamado pela application layer quando o gateway responde com o ID externo
+  setGatewayInfo(
+    gateway: string,
+    gatewayPaymentId: string,
+    gatewayResponse: Record<string, unknown>,
+  ): void {
+    this.props.gateway          = gateway
+    this.props.gatewayPaymentId = gatewayPaymentId
+    this.props.gatewayResponse  = gatewayResponse
+    this.props.updatedAt        = new Date()
   }
 
   clearEvents(): void {
