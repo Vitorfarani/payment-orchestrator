@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 1 concluída. Iniciando Fase 2.
+> **Última atualização:** Fase 2 concluída. Iniciando Fase 3.
 
 ---
 
@@ -12,8 +12,8 @@
 ```
 Fase 0 — Documentação    ✅ CONCLUÍDA
 Fase 1 — Fundação        ✅ CONCLUÍDA
-Fase 2 — Domain Layer    🔄 EM ANDAMENTO
-Fase 3 — Banco de Dados  ⏳ AGUARDANDO
+Fase 2 — Domain Layer    ✅ CONCLUÍDA
+Fase 3 — Banco de Dados  🔄 EM ANDAMENTO
 Fase 4 — Infrastructure  ⏳ AGUARDANDO
 Fase 5 — Use Cases       ⏳ AGUARDANDO
 Fase 6 — Web Layer       ⏳ AGUARDANDO
@@ -150,59 +150,30 @@ docs/
 
 ---
 
-## Fase 2 — Domain Layer 🔄 EM ANDAMENTO
+## Fase 2 — Domain Layer ✅ CONCLUÍDA
 
-### O que será feito
+### O que foi feito
 
-**2.1 — Branded Types**
-- `src/domain/shared/types.ts` — todos os Branded Types (`PaymentId`, `SellerId`, `AccountId`, `JournalEntryId`, `LedgerEntryId`, `SplitRuleId`, `IdempotencyKey`, `RequestId`, `Cents`, `CommissionRate`)
+| Arquivo | Descrição |
+|---|---|
+| `src/domain/shared/types.ts` | Branded Types: `PaymentId`, `SellerId`, `AccountId`, `JournalEntryId`, `Cents`, `CommissionRate`, `IdempotencyKey` |
+| `src/domain/shared/Result.ts` | `Result<T,E>`, `ok()`, `err()` |
+| `src/domain/shared/errors/index.ts` | `DomainError`, `ValidationError`, `BusinessRuleError`, `NotFoundError`, `ConflictError` |
+| `src/domain/shared/value-objects/Money.ts` | Operações aritméticas seguras sobre `Cents` |
+| `src/domain/payment/value-objects/PaymentStatus.ts` | 13 estados, `VALID_TRANSITIONS`, `assertNever()` |
+| `src/domain/payment/Payment.ts` | Entidade com `create()` e `transition()` retornando `Result` |
+| `src/domain/payment/events/index.ts` | 13 domain events tipados |
+| `src/domain/ledger/value-objects/AccountCode.ts` | Enum das 7 contas + `ACCOUNT_TYPES` (ADR-010) |
+| `src/domain/ledger/JournalEntry.ts` | Entidade imutável com validação de double-entry |
+| `src/domain/split/SplitCalculator.ts` | `calculate()` e `calculateMulti()` com invariante `platform + seller === total` |
+| `src/domain/settlement/SettlementSchedule.ts` | `SettlementScheduler.calculatePayoutDate()` com D+1/D+2/D+14/D+30 |
 
-**2.2 — Result Type + erros de domínio**
-- `src/domain/shared/Result.ts` — `Result<T, E>`, `ok()`, `err()`
-- `src/domain/shared/errors/` — hierarquia (`DomainError`, `ValidationError`, `BusinessRuleError`, `NotFoundError`, `ConflictError`)
-
-**2.3 — Value Object: Money**
-- `Cents` + `Currency`, operações aritméticas seguras
-- Primeiro código com TDD
-
-**2.4 — Value Object: IdempotencyKey**
-- Validação de formato UUID, imutável, com factory
-
-**2.5 — Entidade: Payment + State Machine**
-- `PaymentStatus` — discriminated union com 13 estados
-- `VALID_TRANSITIONS` — mapa imutável de transições válidas
-- `assertNever()` — garante cobertura total em switches
-- `Payment` entity — `create()`, `transition()` retornando `Result`
-
-**2.6 — Eventos de domínio**
-- `PaymentCreatedEvent`, `PaymentCapturedEvent`, `PaymentRefundedEvent`, etc.
-- Preparação para o Outbox Pattern
-
-**2.7 — Ledger domain**
-- `AccountCode` enum — 7 contas do Chart of Accounts (ADR-010)
-- `JournalEntry` entity — validação de double-entry no domínio
-
-**2.8 — Split domain**
-- `SplitCalculator` — `calculate()` e `calculateMulti()` com invariante `platform + seller === total`
-
-**2.9 — Settlement domain**
-- `SettlementSchedule` — tipo e mapa de dias
-- `SettlementScheduler.calculatePayoutDate()`
-
-### ADRs relevantes para esta fase
-- ADR-001 — Cents
-- ADR-004 — State Machine com 13 estados
-- ADR-005 — Arredondamento no split
-- ADR-010 — Chart of Accounts
-- ADR-014 — Result Type
-- ADR-015 — Branded Types
-
-### Critério de conclusão
-- 100% do código de domínio escrito via TDD
-- Cobertura ≥ 90% em `src/domain/`
-- Zero dependências externas importadas em qualquer arquivo de `src/domain/`
-- `tsc --noEmit` sem erros
-- CI verde
+### Resultado
+- **99 testes** — 10 suites, todos verdes
+- **99.49% statements / 95.91% branches / 100% funções e linhas**
+- Zero dependências externas em `src/domain/`
+- `tsc --noEmit` e `eslint --max-warnings 0` limpos
+- Commit: `feat: complete domain layer — ledger, split and settlement (phase 2)`
 
 ---
 
