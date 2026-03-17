@@ -11,20 +11,36 @@ export interface JournalLine {
 }
 
 interface JournalEntryProps {
-  readonly id:          JournalEntryId
-  readonly paymentId:   PaymentId
-  readonly lines:       readonly JournalLine[]
-  readonly description: string    // ex: 'PaymentCaptured', 'Refund' — contexto contábil
-  readonly occurredAt:  Date      // quando o evento de negócio aconteceu (≠ createdAt)
-  readonly createdAt:   Date
+  readonly id:            JournalEntryId
+  readonly paymentId:     PaymentId
+  readonly lines:         readonly JournalLine[]
+  readonly description:   string    // ex: 'PaymentCaptured', 'Refund' — contexto contábil
+  readonly occurredAt:    Date      // quando o evento de negócio aconteceu (≠ createdAt)
+  readonly createdAt:     Date
+  readonly sourceEventId?: string   // outbox event ID para idempotência no LedgerWorker (ADR-009)
 }
 
 interface CreateJournalEntryInput {
-  id:           JournalEntryId
-  paymentId:    PaymentId
-  lines:        readonly JournalLine[]
-  description:  string
-  occurredAt?:  Date    // opcional — defaults para now() se omitido
+  id:            JournalEntryId
+  paymentId:     PaymentId
+  lines:         readonly JournalLine[]
+  description:   string
+  occurredAt?:   Date    // opcional — defaults para now() se omitido
+  sourceEventId?: string
+}
+
+/**
+ * Input para rehidratar JournalEntry a partir de uma linha do banco.
+ * Usado exclusivamente pelo PostgresLedgerRepository.
+ */
+export interface ReconstituteJournalEntryInput {
+  readonly id:            JournalEntryId
+  readonly paymentId:     PaymentId
+  readonly lines:         readonly JournalLine[]
+  readonly description:   string
+  readonly occurredAt:    Date
+  readonly createdAt:     Date
+  readonly sourceEventId?: string
 }
 
 export class JournalEntry {
@@ -34,12 +50,13 @@ export class JournalEntry {
     this.props = props
   }
 
-  get id():          JournalEntryId          { return this.props.id }
-  get paymentId():   PaymentId               { return this.props.paymentId }
-  get lines():       readonly JournalLine[]  { return this.props.lines }
-  get description(): string                  { return this.props.description }
-  get occurredAt():  Date                    { return this.props.occurredAt }
-  get createdAt():   Date                    { return this.props.createdAt }
+  get id():            JournalEntryId          { return this.props.id }
+  get paymentId():     PaymentId               { return this.props.paymentId }
+  get lines():         readonly JournalLine[]  { return this.props.lines }
+  get description():   string                  { return this.props.description }
+  get occurredAt():    Date                    { return this.props.occurredAt }
+  get createdAt():     Date                    { return this.props.createdAt }
+  get sourceEventId(): string | undefined      { return this.props.sourceEventId }
 
   static create(input: CreateJournalEntryInput): Result<JournalEntry, ValidationError> {
     if (input.lines.length < 2) {
@@ -74,5 +91,10 @@ export class JournalEntry {
       occurredAt: input.occurredAt ?? now,
       createdAt:  now,
     }))
+  }
+
+  /** Rehidrata a entidade a partir de uma linha do banco. Usado pelo repositório. */
+  static reconstitute(input: ReconstituteJournalEntryInput): JournalEntry {
+    return new JournalEntry({ ...input })
   }
 }

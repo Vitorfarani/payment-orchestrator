@@ -57,6 +57,30 @@ interface CreatePaymentInput {
   metadata?:       Record<string, unknown>
 }
 
+/**
+ * Input para rehidratar Payment a partir de uma linha do banco.
+ * Usado exclusivamente pelo PostgresPaymentRepository.reconstitute().
+ */
+export interface ReconstitutePaymentInput {
+  readonly id:             PaymentId
+  readonly sellerId:       SellerId
+  readonly amount:         Cents
+  readonly idempotencyKey: IdempotencyKey
+  readonly status:         PaymentStatus
+  readonly createdAt:      Date
+  readonly updatedAt:      Date
+  readonly gateway?:          string
+  readonly gatewayPaymentId?: string
+  readonly gatewayResponse?:  Record<string, unknown>
+  readonly metadata?:         Record<string, unknown>
+  readonly errorCode?:        string
+  readonly errorMessage?:     string
+  readonly authorizedAt?:     Date
+  readonly capturedAt?:       Date
+  readonly refundedAt?:       Date
+  readonly failedAt?:         Date
+}
+
 export class Payment {
   private props: PaymentProps
   private events: PaymentDomainEvent[] = []
@@ -157,6 +181,11 @@ export class Payment {
 
   clearEvents(): void {
     this.events = []
+  }
+
+  /** Rehidrata a entidade a partir de uma linha do banco. Não gera domain events. */
+  static reconstitute(input: ReconstitutePaymentInput): Payment {
+    return new Payment({ ...input })
   }
 
   // — Constrói o evento certo pra cada transição —

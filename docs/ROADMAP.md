@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 4 em andamento — Grupo A concluído: IOutboxRepository ✅, SettlementItem ✅, ISettlementRepository ✅, IUnitOfWork ✅. Próximo: implementações Postgres dos repositórios.
+> **Última atualização:** Fase 4 em andamento — Grupo A ✅ + Grupo B ✅. Concluídos: todos os 7 repositórios + KnexUnitOfWork + PostgresAuditLogRepository. **Próximo:** Outbox Relay (4.2).
 
 ---
 
@@ -266,8 +266,16 @@ await uow.run(async (repos) => {
 - ✅ `src/domain/settlement/SettlementItem.ts` — entidade de domínio (TDD, 23 testes)
 - ✅ `src/domain/settlement/ISettlementRepository.ts` — interface do domínio
 - ✅ `src/application/shared/IUnitOfWork.ts` — abstração de transação para use cases
-- ⏳ `PostgresPaymentRepository`, `PostgresLedgerRepository`, `LedgerQueryRepository`
-- ⏳ `PostgresOutboxRepository`, `PostgresSettlementRepository`, `PostgresAuditLogRepository`
+- ✅ `Payment.ts` — adicionados `ReconstitutePaymentInput` (exportado) + `reconstitute()`
+- ✅ `JournalEntry.ts` — adicionados `sourceEventId`, getter, `ReconstituteJournalEntryInput` + `reconstitute()`
+- ✅ `src/infrastructure/database/repositories/PostgresPaymentRepository.ts`
+- ✅ `src/infrastructure/database/repositories/PostgresLedgerRepository.ts`
+- ✅ `src/infrastructure/database/repositories/LedgerQueryRepository.ts` — CQRS read model (ledger_summary MV)
+- ✅ `src/infrastructure/database/repositories/PostgresOutboxRepository.ts` — FOR UPDATE SKIP LOCKED
+- ✅ `src/infrastructure/database/repositories/PostgresSettlementRepository.ts`
+- ✅ `src/infrastructure/database/KnexUnitOfWork.ts` — abre trx, constrói os 4 repos escopados, commita/rollback
+- ✅ `src/infrastructure/audit/AuditAction.ts` — tipo `AuditAction` + interface `InsertAuditLogInput`
+- ✅ `src/infrastructure/database/repositories/PostgresAuditLogRepository.ts` — INSERT-only (ADR-018)
 
 **4.2 — Outbox Relay**
 - Polling 1s, `SELECT FOR UPDATE SKIP LOCKED`
