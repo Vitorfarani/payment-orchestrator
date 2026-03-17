@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 3 concluída. Iniciando Fase 4.
+> **Última atualização:** Fase 3 concluída. Fase 4 em andamento — IOutboxRepository ✅, migration 013 ✅, IPaymentRepository corrigido ✅. Decisão: IUnitOfWork Option B.
 
 ---
 
@@ -177,14 +177,16 @@ docs/
 
 ---
 
-## Fase 3 — Banco de Dados ⏳ AGUARDANDO
+## Fase 3 — Banco de Dados ✅ CONCLUÍDA
 
-### O que será feito
+### O que foi feito
 
-**3.1 — Setup do Knex**
-- Configuração com TypeScript e connection pool
+**3.1 — Setup do Knex** ✅
+- `src/infrastructure/database/knex.ts` — connection pool + TypeScript
+- `knexfile.ts` — configuração para test/development/production
+- `tsconfig.test.json` — necessário para ESLint cobrir spec files
 
-**3.2 — Migrations (em ordem)**
+**3.2 — Migrations (001–012)** ✅
 ```
 001_create_sellers.ts
 002_create_payments.ts           ← CHECK constraints de status e amount
@@ -200,28 +202,71 @@ docs/
 012_create_ledger_summary_view.ts ← MATERIALIZED VIEW para o dashboard
 ```
 
-**3.3 — Documentos a criar nesta fase**
-- `docs/architecture/data-model.md` — ERD completo
-- `docs/domain/chart-of-accounts.md` — versão legível para não-técnicos
+**3.3 — Testes de integração** ✅
+- `tests/infrastructure/database/migrations.integration.spec.ts` — Testcontainers GenericContainer
+- Valida trigger de double-entry, constraints, MATERIALIZED VIEW
+
+**3.4 — Documentos criados** ✅
+- `docs/architecture/data-model.md` — ERD completo com todas as 12 tabelas
 
 ### ADRs relevantes para esta fase
 - ADR-010 — Chart of Accounts
 - ADR-016 — Constraints e trigger de double-entry
 - ADR-007 — MATERIALIZED VIEW do Ledger
 
-### Critério de conclusão
-- `npm run db:migrate` sem erros
-- Trigger de double-entry rejeitando `JournalEntry` desbalanceada (testado via Testcontainers)
-- `docs/architecture/data-model.md` criado com ERD
+### Critério de conclusão ✅ TODOS ATINGIDOS
+- `npm run db:migrate` sem erros ✅
+- Trigger de double-entry rejeitando `JournalEntry` desbalanceada (testado via Testcontainers) ✅
+- `docs/architecture/data-model.md` criado com ERD ✅
 
 ---
 
-## Fase 4 — Infrastructure Layer ⏳ AGUARDANDO
+## Fase 4 — Infrastructure Layer 🔄 EM ANDAMENTO
+
+### Inconsistências identificadas e corrigidas no início desta fase
+
+Ao auditar o código gerado na Fase 2 contra o schema da Fase 3, foram encontradas duas inconsistências que precisavam ser corrigidas antes de avançar:
+
+**Correção 1 — `IPaymentRepository` sem `findByIdForUpdate`** ✅
+- A interface estava incompleta: `PaymentWorker`, `ProcessWebhookUseCase` e `RefundPaymentUseCase` precisam de `SELECT FOR UPDATE` para evitar race conditions em transições de estado concorrentes (ADR-004)
+- Solução: adicionado `findByIdForUpdate(id: PaymentId): Promise<Payment | null>` sem parâmetro `trx` — compatível com IUnitOfWork Option B
+
+**Correção 2 — `IJournalEntryRepository.existsByOutboxEventId` sem migration** ✅
+- A interface já referenciava a coluna `source_event_id` em `journal_entries`, mas a coluna não existia no schema
+- Solução: criada migration 013 com `UUID NULLABLE`, índice parcial único `WHERE source_event_id IS NOT NULL` e sem FK para `outbox_events` (retenções incompatíveis: 30 dias vs 7 anos — ADR-018)
+
+---
+
+### Decisão de design — IUnitOfWork (Opção B)
+
+**Problema:** como garantir atomicidade entre repositórios sem expor `Knex.Transaction` nas interfaces de domínio/application?
+
+**Decisão:** IUnitOfWork como abstração no `application/shared/`. Os repositórios são construídos já escopados à transação ativa dentro de `uow.run()` — use cases nunca veem `trx` diretamente.
+
+```typescript
+// Use case — nenhum import de Knex
+await uow.run(async (repos) => {
+  await repos.payments.save(payment)
+  await repos.outbox.save(event)
+})
+```
+
+**Justificativa:** `trx` é um detalhe do Knex (infraestrutura). Expô-lo nas interfaces violaria a regra de dependência da Clean Architecture — `application/` não pode conhecer Knex.
+
+---
 
 ### O que será feito
 
-**4.1 — Repositories**
-- `PostgresPaymentRepository`, `PostgresLedgerRepository`, `LedgerQueryRepository`, `PostgresOutboxRepository`, `PostgresSettlementRepository`, `PostgresAuditLogRepository`
+**4.1 — Repositories** 🔄 em andamento
+- ✅ `src/domain/outbox/OutboxEvent.ts` — entidade de domínio (TDD, 11 testes)
+- ✅ `src/domain/payment/IPaymentRepository.ts` — interface do domínio (corrigida: +findByIdForUpdate)
+- ✅ `src/domain/ledger/IJournalEntryRepository.ts` — interface do domínio
+- ✅ `src/domain/outbox/IOutboxRepository.ts` — interface do domínio
+- ✅ migration 013 — coluna `source_event_id` em `journal_entries` (idempotência do LedgerWorker)
+- ⏳ `src/domain/settlement/ISettlementRepository.ts` — interface do domínio + entidade SettlementItem (TDD)
+- ⏳ `src/application/shared/IUnitOfWork.ts` — abstração de transação para use cases
+- ⏳ `PostgresPaymentRepository`, `PostgresLedgerRepository`, `LedgerQueryRepository`
+- ⏳ `PostgresOutboxRepository`, `PostgresSettlementRepository`, `PostgresAuditLogRepository`
 
 **4.2 — Outbox Relay**
 - Polling 1s, `SELECT FOR UPDATE SKIP LOCKED`
