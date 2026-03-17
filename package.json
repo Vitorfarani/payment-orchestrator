@@ -19,6 +19,9 @@
     "test:contract": "jest --testPathPattern='src/.*\\.contract\\.spec\\.ts$' --passWithNoTests",
     "test:e2e": "jest --testPathPattern='src/.*\\.e2e\\.spec\\.ts$' --passWithNoTests --runInBand",
     "test:coverage": "jest --coverage --testPathPattern='src/.*\\.spec\\.ts$'",
+    "db:migrate": "node --require ts-node/register node_modules/knex/bin/cli.js migrate:latest --knexfile src/infrastructure/database/knexfile.ts",
+    "db:rollback": "node --require ts-node/register node_modules/knex/bin/cli.js migrate:rollback --knexfile src/infrastructure/database/knexfile.ts",
+    "db:seed": "node --require ts-node/register node_modules/knex/bin/cli.js seed:run --knexfile src/infrastructure/database/knexfile.ts",
     "audit:security": "npm audit --audit-level=high",
     "secrets:check": "secretlint .env.example",
     "prepare": "husky"
