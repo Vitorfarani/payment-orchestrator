@@ -69,6 +69,14 @@ module.exports = {
                 '@typescript-eslint/no-explicit-any': 'warn',
                 '@typescript-eslint/no-non-null-assertion': 'warn',
                 '@typescript-eslint/explicit-function-return-type': 'off',
+                // "as" é necessário em testes para tipar resultados de queries Knex
+                // O ban se aplica ao código de domínio e aplicação, não à infra de testes
+                'no-restricted-syntax': 'off',
+                // Queries Knex retornam unknown/any — unsafe rules são noise em testes
+                '@typescript-eslint/no-unsafe-assignment': 'off',
+                '@typescript-eslint/no-unsafe-member-access': 'off',
+                '@typescript-eslint/no-unsafe-call': 'off',
+                '@typescript-eslint/no-unsafe-argument': 'off',
             },
         },
     ],

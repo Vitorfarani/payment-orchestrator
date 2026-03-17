@@ -43,3 +43,30 @@ jobs:
       # ─── Gate 5: testes (passa mesmo sem testes ainda) ───────────────────
       - name: Unit tests
         run: npm test
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    # ubuntu-latest já tem Docker instalado e daemon rodando
+    # Testcontainers sobe o próprio PostgreSQL — sem services: necessário
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Integration tests
+        run: npm run test:int
+        env:
+          # Testcontainers gerencia sua própria conexão — DATABASE_URL não é
+          # usado pelo teste mas precisa existir para o knexfile não lançar erro
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          NODE_ENV: test
