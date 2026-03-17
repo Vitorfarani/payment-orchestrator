@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 3 concluída. Fase 4 em andamento — IOutboxRepository ✅, migration 013 ✅, IPaymentRepository corrigido ✅. Decisão: IUnitOfWork Option B.
+> **Última atualização:** Fase 4 em andamento — Grupo A concluído: IOutboxRepository ✅, SettlementItem ✅, ISettlementRepository ✅, IUnitOfWork ✅. Próximo: implementações Postgres dos repositórios.
 
 ---
 
@@ -263,8 +263,9 @@ await uow.run(async (repos) => {
 - ✅ `src/domain/ledger/IJournalEntryRepository.ts` — interface do domínio
 - ✅ `src/domain/outbox/IOutboxRepository.ts` — interface do domínio
 - ✅ migration 013 — coluna `source_event_id` em `journal_entries` (idempotência do LedgerWorker)
-- ⏳ `src/domain/settlement/ISettlementRepository.ts` — interface do domínio + entidade SettlementItem (TDD)
-- ⏳ `src/application/shared/IUnitOfWork.ts` — abstração de transação para use cases
+- ✅ `src/domain/settlement/SettlementItem.ts` — entidade de domínio (TDD, 23 testes)
+- ✅ `src/domain/settlement/ISettlementRepository.ts` — interface do domínio
+- ✅ `src/application/shared/IUnitOfWork.ts` — abstração de transação para use cases
 - ⏳ `PostgresPaymentRepository`, `PostgresLedgerRepository`, `LedgerQueryRepository`
 - ⏳ `PostgresOutboxRepository`, `PostgresSettlementRepository`, `PostgresAuditLogRepository`
 

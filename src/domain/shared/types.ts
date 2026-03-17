@@ -73,3 +73,11 @@ export const IdempotencyKey = {
   },
   generate: (): IdempotencyKey => randomUUID() as IdempotencyKey,
 }
+
+// — Settlement —
+export type SettlementItemId = Brand<string, 'SettlementItemId'>
+
+export const SettlementItemId = {
+  of:     (id: string): SettlementItemId => { requireUUID(id, 'SettlementItemId'); return id as SettlementItemId },
+  create: (): SettlementItemId => randomUUID() as SettlementItemId,
+}
