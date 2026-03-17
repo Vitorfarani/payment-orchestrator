@@ -80,7 +80,12 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "roots": [
-      "<rootDir>/src"
+      "<rootDir>/src",
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "**/*.test.ts",
+      "**/*.spec.ts"
     ],
     "moduleFileExtensions": [
       "ts",
@@ -92,7 +97,7 @@
       "!src/**/*.spec.ts",
       "!src/**/*.d.ts"
     ],
-    "coverageThresholds": {
+    "coverageThreshold": {
       "global": {
         "branches": 80,
         "functions": 80,

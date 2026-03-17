@@ -4,7 +4,7 @@ module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.json',
+    project: ['./tsconfig.json', './tsconfig.test.json'],
     tsconfigRootDir: __dirname,
     ecmaVersion: 2022,
     sourceType: 'module',
@@ -54,23 +54,23 @@ module.exports = {
     'no-var': 'error',
     'prefer-const': 'error',
   },
-  overrides: [
-    // Permite "as" apenas nos branded types — única exceção do domínio
-    {
-      files: ['src/domain/shared/types.ts'],
-      rules: {
-        'no-restricted-syntax': 'off',
-      },
-    },
-    // Testes têm regras mais relaxadas
-    {
-      files: ['**/*.spec.ts', '**/*.integration.spec.ts', '**/*.e2e.spec.ts'],
-      rules: {
-        '@typescript-eslint/no-explicit-any': 'warn',
-        '@typescript-eslint/no-non-null-assertion': 'warn',
-        '@typescript-eslint/explicit-function-return-type': 'off',
-      },
-    },
-  ],
+    overrides: [
+        // Permite "as" apenas nos branded types — única exceção do domínio
+        {
+            files: ['src/domain/shared/types.ts'],
+            rules: {
+                'no-restricted-syntax': 'off',
+            },
+        },
+        // Testes têm regras mais relaxadas
+        {
+            files: ['**/*.spec.ts', '**/*.test.ts', '**/*.integration.spec.ts', '**/*.e2e.spec.ts'],
+            rules: {
+                '@typescript-eslint/no-explicit-any': 'warn',
+                '@typescript-eslint/no-non-null-assertion': 'warn',
+                '@typescript-eslint/explicit-function-return-type': 'off',
+            },
+        },
+    ],
   ignorePatterns: ['dist/', 'node_modules/', 'coverage/', '*.js', '!.eslintrc.js'],
 }
