@@ -1,4 +1,4 @@
-import { PaymentId, SellerId, AccountId, JournalEntryId, Cents, CommissionRate, IdempotencyKey } from '../../../src/domain/shared/types'
+import { PaymentId, SellerId, AccountId, JournalEntryId, Cents, CommissionRate, IdempotencyKey, SplitRuleId } from '../../../src/domain/shared/types'
 
 describe('PaymentId', () => {
   it('aceita um UUID válido', () => {
@@ -90,5 +90,19 @@ describe('IdempotencyKey', () => {
 
   it('generate() retorna um UUID válido como chave', () => {
     expect(IdempotencyKey.generate()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+  })
+})
+
+describe('SplitRuleId', () => {
+  it('of() aceita UUID válido', () => {
+    expect(SplitRuleId.of('550e8400-e29b-41d4-a716-446655440000')).toBe('550e8400-e29b-41d4-a716-446655440000')
+  })
+
+  it('of() rejeita string que não é UUID', () => {
+    expect(() => SplitRuleId.of('nao-e-uuid')).toThrow('Invalid SplitRuleId format')
+  })
+
+  it('create() gera um UUID novo', () => {
+    expect(SplitRuleId.create()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
   })
 })

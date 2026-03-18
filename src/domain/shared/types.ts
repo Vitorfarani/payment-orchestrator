@@ -81,3 +81,9 @@ export const SettlementItemId = {
   of:     (id: string): SettlementItemId => { requireUUID(id, 'SettlementItemId'); return id as SettlementItemId },
   create: (): SettlementItemId => randomUUID() as SettlementItemId,
 }
+
+// — Split —
+export const SplitRuleId = {
+  of:     (id: string): SplitRuleId => { requireUUID(id, 'SplitRuleId'); return id as SplitRuleId },
+  create: (): SplitRuleId => randomUUID() as SplitRuleId,
+}
