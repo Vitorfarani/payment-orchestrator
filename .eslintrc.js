@@ -77,6 +77,10 @@ module.exports = {
                 '@typescript-eslint/no-unsafe-member-access': 'off',
                 '@typescript-eslint/no-unsafe-call': 'off',
                 '@typescript-eslint/no-unsafe-argument': 'off',
+                // `expect(mockFn).toHaveBeenCalled()` passa funções de interface para expect —
+                // o TypeScript vê como "unbound method" mas jest não usa `this` nessas funções.
+                // A alternativa seria eslint-plugin-jest/unbound-method, mas não usamos o plugin.
+                '@typescript-eslint/unbound-method': 'off',
             },
         },
     ],
