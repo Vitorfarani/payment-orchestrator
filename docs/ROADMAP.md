@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 4 em andamento. Concluídos: todos os repositórios + KnexUnitOfWork + observabilidade (logger/metrics/tracing) + IdempotencyStore + SensitiveDataMasker + IPaymentGateway + CircuitBreakerFactory + StripeAdapter (19 testes) + jobOptions + OutboxRelay (260 testes). **Próximo:** AsaasAdapter (4.3) + Workers BullMQ (4.5) + GracefulShutdown (4.7).
+> **Última atualização:** Fase 4 em andamento. Concluídos: todos os repositórios + KnexUnitOfWork + observabilidade + IdempotencyStore + SensitiveDataMasker + gateways (Stripe + Asaas) + jobOptions + OutboxRelay (298 testes totais). **PaymentWorker ✅ (19 testes)**. **Próximo:** LedgerWorker (4.5b) + SettlementWorker (4.5c) + GracefulShutdown (4.7).
 
 ---
 
@@ -293,9 +293,10 @@ await uow.run(async (repos) => {
 - ✅ `src/infrastructure/idempotency/IdempotencyStore.ts` — duas camadas: Redis TTL + PostgreSQL durável (ADR-002)
 - ✅ `tests/infrastructure/idempotency/IdempotencyStore.test.ts`
 
-**4.5 — Workers BullMQ** ⏳
-- `PaymentWorker`, `LedgerWorker`, `SettlementWorker`
-- `jobOptions.ts` com backoff exponencial + jitter
+**4.5 — Workers BullMQ** 🔄
+- ✅ `src/infrastructure/queue/workers/PaymentWorker.ts` — authorize + capture em 1 UoW atômica; CIRCUIT_OPEN → relança (BullMQ retry); falha terminal → PROCESSING → FAILED; 19 testes
+- ⏳ `LedgerWorker` — consome PAYMENT_CAPTURED e PAYMENT_REFUNDED; idempotência via `existsByOutboxEventId`; double-entry ADR-010; `ledgerBackoffStrategy` (8 tentativas)
+- ⏳ `SettlementWorker` — consome PAYMENT_CAPTURED; cron 06:00 UTC para payouts vencidos; `settlementBackoffStrategy`
 
 **4.6 — Observabilidade** ✅
 - ✅ `src/infrastructure/logger/logger.ts` — Pino com redact de dados sensíveis (ADR-019 camada 1)
@@ -501,6 +502,12 @@ SensitiveDataMasker, AuditLogger e GracefulShutdown.
 Regra crítica do Outbox (ADR-009): workers chamam o gateway diretamente,
 mas SEMPRE publicam o resultado via outboxRepo.save() dentro da mesma
 transação — nunca via queue.add() diretamente.
+
+Estado atual (4.5 em andamento):
+- PaymentWorker ✅ — `src/infrastructure/queue/workers/PaymentWorker.ts`
+  Próximos: LedgerWorker (ADR-010 double-entry, existsByOutboxEventId para
+  idempotência, ledgerBackoffStrategy 8 tentativas), SettlementWorker (cron
+  06:00 UTC, settlementBackoffStrategy), GracefulShutdown (SIGTERM handler).
 
 Os ADRs relevantes estão anexados.
 ```
