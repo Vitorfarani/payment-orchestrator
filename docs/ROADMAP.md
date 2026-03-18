@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 4 em andamento — Grupo A ✅ + Grupo B ✅. Concluídos: todos os 7 repositórios + KnexUnitOfWork + PostgresAuditLogRepository. **Próximo:** Outbox Relay (4.2).
+> **Última atualização:** Fase 4 em andamento. Concluídos: todos os repositórios + KnexUnitOfWork + observabilidade (logger/metrics/tracing) + IdempotencyStore + SensitiveDataMasker + IPaymentGateway + CircuitBreakerFactory + StripeAdapter (19 testes) + jobOptions + OutboxRelay (260 testes). **Próximo:** AsaasAdapter (4.3) + Workers BullMQ (4.5) + GracefulShutdown (4.7).
 
 ---
 
@@ -169,7 +169,7 @@ docs/
 | `src/domain/settlement/SettlementSchedule.ts` | `SettlementScheduler.calculatePayoutDate()` com D+1/D+2/D+14/D+30 |
 
 ### Resultado
-- **99 testes** — 10 suites, todos verdes
+- **99 testes** — 10 suites, todos verdes (suite total acumulada ao final da Fase 4: 223 testes)
 - **99.49% statements / 95.91% branches / 100% funções e linhas**
 - Zero dependências externas em `src/domain/`
 - `tsc --noEmit` e `eslint --max-warnings 0` limpos
@@ -277,30 +277,35 @@ await uow.run(async (repos) => {
 - ✅ `src/infrastructure/audit/AuditAction.ts` — tipo `AuditAction` + interface `InsertAuditLogInput`
 - ✅ `src/infrastructure/database/repositories/PostgresAuditLogRepository.ts` — INSERT-only (ADR-018)
 
-**4.2 — Outbox Relay**
-- Polling 1s, `SELECT FOR UPDATE SKIP LOCKED`
-- Publicação no BullMQ com `jobId = event.id`
+**4.2 — Outbox Relay** ✅
+- ✅ `src/infrastructure/workers/jobOptions.ts` — backoff exponencial + jitter centralizado; `defaultBackoffStrategy` (5 tentativas, cap 60s), `ledgerBackoffStrategy` (8 tentativas, cap 30s), `settlementBackoffStrategy` (3 tentativas, 30–40s)
+- ✅ `src/infrastructure/outbox/OutboxRelay.ts` — polling 1s, `SELECT FOR UPDATE SKIP LOCKED` via repo, `QueueLike` interface injetável, `QueueResolver` por event type, métricas `outboxUnprocessedEventsTotal` + `outboxRelayLagSeconds`, `start()`/`stop()` para GracefulShutdown
+- ✅ `tests/infrastructure/workers/jobOptions.test.ts` + `tests/infrastructure/outbox/OutboxRelay.test.ts` — 17 testes
 
-**4.3 — Gateway Adapters**
-- `IPaymentGateway` — interface no domínio
-- `StripeAdapter` e `AsaasAdapter` com Circuit Breaker (ADR-008)
+**4.3 — Gateway Adapters** 🔄
+- ✅ `src/domain/payment/IPaymentGateway.ts` — interface pura no domínio (authorize/capture/refund/getStatus)
+- ✅ `src/infrastructure/gateway/CircuitBreakerFactory.ts` — factory genérica com métricas + log (ADR-008)
+- ✅ `src/infrastructure/gateway/StripeAdapter.ts` — implementa IPaymentGateway com 4 circuit breakers separados; `StripeClient` como interface mínima injetável
+- ✅ `tests/infrastructure/gateway/StripeAdapter.test.ts` — 19 testes (happy path, STRIPE_ERROR, CIRCUIT_OPEN, metadata, idempotencyKey)
+- ⏳ `AsaasAdapter` — segunda implementação de `IPaymentGateway`
 
-**4.4 — Idempotency Store**
-- Redis como cache rápido, PostgreSQL como fallback durável
+**4.4 — Idempotency Store** ✅
+- ✅ `src/infrastructure/idempotency/IdempotencyStore.ts` — duas camadas: Redis TTL + PostgreSQL durável (ADR-002)
+- ✅ `tests/infrastructure/idempotency/IdempotencyStore.test.ts`
 
-**4.5 — Workers BullMQ**
+**4.5 — Workers BullMQ** ⏳
 - `PaymentWorker`, `LedgerWorker`, `SettlementWorker`
 - `jobOptions.ts` com backoff exponencial + jitter
 
-**4.6 — Observabilidade**
-- `logger.ts` — Pino com redact de dados sensíveis
-- `metrics.ts` — métricas definidas no ADR-017
-- `tracing.ts` — OpenTelemetry SDK
+**4.6 — Observabilidade** ✅
+- ✅ `src/infrastructure/logger/logger.ts` — Pino com redact de dados sensíveis (ADR-019 camada 1)
+- ✅ `src/infrastructure/metrics/metrics.ts` — todas as métricas definidas no ADR-017
+- ✅ `src/infrastructure/tracing/tracing.ts` — OpenTelemetry SDK com OTLP exporter
 
-**4.7 — Segurança**
-- `SensitiveDataMasker` — 3 camadas (ADR-019)
-- `AuditLogger` — INSERT-only
-- `GracefulShutdown` — SIGTERM handler (ADR-013)
+**4.7 — Segurança** 🔄
+- ✅ `src/infrastructure/security/SensitiveDataMasker.ts` — mascaramento ativo (ADR-019 camada 2)
+- ✅ `src/infrastructure/database/repositories/PostgresAuditLogRepository.ts` — INSERT-only (ADR-018)
+- ⏳ `GracefulShutdown` — SIGTERM handler (ADR-013)
 
 ### ADRs relevantes para esta fase
 - ADR-002, ADR-008, ADR-009, ADR-012, ADR-013, ADR-017, ADR-018, ADR-019
