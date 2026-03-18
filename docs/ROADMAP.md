@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 4 em andamento. Concluídos: todos os repositórios + KnexUnitOfWork + observabilidade + IdempotencyStore + SensitiveDataMasker + gateways (Stripe + Asaas) + jobOptions + OutboxRelay (298 testes totais). **PaymentWorker ✅ (19 testes)**. **Próximo:** LedgerWorker (4.5b) + SettlementWorker (4.5c) + GracefulShutdown (4.7).
+> **Última atualização:** Fase 4 em andamento. Concluídos: todos os repositórios + KnexUnitOfWork + observabilidade + IdempotencyStore + SensitiveDataMasker + gateways (Stripe + Asaas) + jobOptions + OutboxRelay + PaymentWorker + **LedgerWorker ✅ (17 testes)** + **SettlementWorker ✅ (12 testes)** + **GracefulShutdown ✅ (7 testes)** (338 testes totais). **Próximo:** AsaasAdapter (4.3) + Fase 5 (Use Cases).
 
 ---
 
@@ -295,8 +295,8 @@ await uow.run(async (repos) => {
 
 **4.5 — Workers BullMQ** 🔄
 - ✅ `src/infrastructure/queue/workers/PaymentWorker.ts` — authorize + capture em 1 UoW atômica; CIRCUIT_OPEN → relança (BullMQ retry); falha terminal → PROCESSING → FAILED; 19 testes
-- ⏳ `LedgerWorker` — consome PAYMENT_CAPTURED e PAYMENT_REFUNDED; idempotência via `existsByOutboxEventId`; double-entry ADR-010; `ledgerBackoffStrategy` (8 tentativas)
-- ⏳ `SettlementWorker` — consome PAYMENT_CAPTURED; cron 06:00 UTC para payouts vencidos; `settlementBackoffStrategy`
+- ✅ `LedgerWorker` — consome PAYMENT_CAPTURED e PAYMENT_REFUNDED; idempotência via `existsByOutboxEventId`; double-entry ADR-010; `ledgerBackoffStrategy` (8 tentativas); UnrecoverableError para trigger PG; 17 testes
+- ✅ `SettlementWorker` — consome PAYMENT_CAPTURED; cron 06:00 UTC via `processDue(asOf)`; cada item em UoW isolada; `settlementBackoffStrategy`; 12 testes
 
 **4.6 — Observabilidade** ✅
 - ✅ `src/infrastructure/logger/logger.ts` — Pino com redact de dados sensíveis (ADR-019 camada 1)
@@ -306,7 +306,7 @@ await uow.run(async (repos) => {
 **4.7 — Segurança** 🔄
 - ✅ `src/infrastructure/security/SensitiveDataMasker.ts` — mascaramento ativo (ADR-019 camada 2)
 - ✅ `src/infrastructure/database/repositories/PostgresAuditLogRepository.ts` — INSERT-only (ADR-018)
-- ⏳ `GracefulShutdown` — SIGTERM handler (ADR-013)
+- ✅ `GracefulShutdown` — SIGTERM/SIGINT handler; HTTP → relay → workers → DB/Redis; timeout 90s; 7 testes (ADR-013)
 
 ### ADRs relevantes para esta fase
 - ADR-002, ADR-008, ADR-009, ADR-012, ADR-013, ADR-017, ADR-018, ADR-019
