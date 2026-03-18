@@ -285,3 +285,53 @@ CREATE INDEX idx_idempotency_keys_created_at ON idempotency_keys (created_at);
 - `src/infrastructure/idempotency/IdempotencyStore.ts`
 - `src/web/middlewares/IdempotencyMiddleware.ts`
 - `src/infrastructure/database/migrations/009_idempotency_keys.ts`
+
+---
+
+## Divergências entre o ADR e a implementação real
+
+Este ADR foi escrito antes do código existir. Quando a implementação foi feita (Fase 4, Grupo F), duas decisões diferiram do pseudocódigo acima por boas razões. Ambas preservam o comportamento descrito na seção **Decisão** — apenas os mecanismos internos mudaram.
+
+### Divergência 1 — Coluna `status` substituída por `response_body` nullable
+
+**O que o ADR descrevia:** uma coluna `status VARCHAR(20) CHECK (status IN ('PROCESSING', 'COMPLETED', 'FAILED'))`.
+
+**O que a migration 009 criou:** sem coluna `status`. O estado é derivado de `response_body`:
+
+```
+response_body IS NULL     → PROCESSING (operação em andamento)
+response_body IS NOT NULL → COMPLETED  (resultado persistido)
+```
+
+**Por quê:** a migration foi escrita com um schema mais simples e igualmente expressivo. A coluna `status` seria redundante — o único dado que muda entre os estados é justamente o `response_body`. Adicionar uma coluna separada seria denormalização sem benefício.
+
+**Impacto em `fail()`:** sem coluna `status`, marcar FAILED exigiria armazenar um valor especial em `response_body` — o que misturaria metadados de erro com payload de resposta. A decisão foi **deletar a linha** ao falhar: limpa, sem ambiguidade, e permite retry imediato com a mesma chave.
+
+---
+
+### Divergência 2 — `ON CONFLICT DO UPDATE ... xmax` substituído por try-catch em `23505`
+
+**O que o ADR descrevia:**
+
+```sql
+INSERT INTO idempotency_keys ...
+ON CONFLICT (key) DO UPDATE
+  SET updated_at = idempotency_keys.updated_at  -- no-op
+RETURNING *, (xmax = 0) AS inserted
+```
+
+**O que o código faz:**
+
+```typescript
+try {
+  await this.db<IdempotencyRow>('idempotency_keys').insert({ key, expires_at })
+  return { isNew: true }
+} catch (err: unknown) {
+  if (!isUniqueViolationError(err)) throw err  // err.code === '23505'
+}
+// conflito confirmado — SELECT para obter o registro existente
+```
+
+**Por quê:** a syntax `ON CONFLICT DO UPDATE ... RETURNING xmax` exige `db.raw()` no Knex — SQL como string literal. O ESLint do projeto desencoraja `db.raw()` sem necessidade real (ver padrão em `PostgresOutboxRepository.recordFailure`). O try-catch em `23505` produz o mesmo comportamento garantido pela `UNIQUE` constraint, sem SQL raw, sem string literal frágil.
+
+**Garantia mantida:** a atomicidade da detecção de race condition vem da `UNIQUE` constraint no banco — não do SQL escolhido para detectá-la. Ambas as abordagens são igualmente corretas.
