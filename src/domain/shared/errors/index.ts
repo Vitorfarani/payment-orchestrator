@@ -35,3 +35,10 @@ export class ConflictError extends DomainError {
     this.name = 'ConflictError'
   }
 }
+
+export class GatewayError extends DomainError {
+  constructor(message: string, code = 'GATEWAY_ERROR') {
+    super(message, code)
+    this.name = 'GatewayError'
+  }
+}
