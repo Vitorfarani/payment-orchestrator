@@ -31,7 +31,7 @@ describe('Payment.create()', () => {
     const result = makePayment()
     if (result.ok) {
       expect(result.value.domainEvents).toHaveLength(1)
-      expect(result.value.domainEvents[0]!.type).toBe('PaymentCreated')
+      expect(result.value.domainEvents[0]?.type).toBe('PaymentCreated')
     }
   })
 })

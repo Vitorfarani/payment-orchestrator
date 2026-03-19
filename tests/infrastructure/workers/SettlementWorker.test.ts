@@ -87,7 +87,7 @@ function makeRepos(sr: jest.Mocked<ISettlementRepository>): jest.Mocked<ITransac
       markProcessed:        jest.fn(),
       recordFailure:        jest.fn(),
     } as jest.Mocked<IOutboxRepository>,
-    settlements: sr as jest.Mocked<ISettlementRepository>,
+    settlements: sr,
   }
 }
 

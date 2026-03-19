@@ -90,10 +90,10 @@ describe('GracefulShutdown', () => {
           cb()
         }),
       }
-      const worker = { close: jest.fn().mockImplementation(async () => { callOrder.push('worker.close') }) }
+      const worker = { close: jest.fn().mockImplementation(() => { callOrder.push('worker.close'); return Promise.resolve() }) }
       const relay  = { stop:  jest.fn().mockImplementation(() => { callOrder.push('relay.stop') }) }
-      const db     = { destroy: jest.fn().mockImplementation(async () => { callOrder.push('db.destroy') }) }
-      const redis  = { quit: jest.fn().mockImplementation(async () => { callOrder.push('redis.quit'); return 'OK' }) }
+      const db     = { destroy: jest.fn().mockImplementation(() => { callOrder.push('db.destroy'); return Promise.resolve() }) }
+      const redis  = { quit: jest.fn().mockImplementation(() => { callOrder.push('redis.quit'); return Promise.resolve('OK') }) }
 
       const shutdown = new GracefulShutdown({ server, workers: [worker], relay, db, redis, logger: makeLogger() })
 
@@ -118,7 +118,7 @@ describe('GracefulShutdown', () => {
 
       // Garante que workers.close é chamado antes de db.destroy
       let workersClosedBeforeDb = false
-      worker1.close.mockImplementation(async () => { workersClosedBeforeDb = !db.destroy.mock.calls.length })
+      worker1.close.mockImplementation(() => { workersClosedBeforeDb = !db.destroy.mock.calls.length; return Promise.resolve() })
 
       const shutdown = new GracefulShutdown({
         ...makeDeps(),

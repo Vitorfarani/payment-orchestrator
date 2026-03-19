@@ -78,9 +78,9 @@ describe('SplitCalculator.calculateMulti()', () => {
     ])
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.parts[0]!.amount).toBe(333)
-    expect(result.value.parts[1]!.amount).toBe(333)
-    expect(result.value.parts[2]!.amount).toBe(334) // absorve o remainder
+    expect(result.value.parts[0]?.amount).toBe(333)
+    expect(result.value.parts[1]?.amount).toBe(333)
+    expect(result.value.parts[2]?.amount).toBe(334) // absorve o remainder
   })
 
   it('invariante: soma das partes === total sempre', () => {
@@ -102,8 +102,8 @@ describe('SplitCalculator.calculateMulti()', () => {
     ])
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.parts[0]!.recipientId).toBe('platform')
-    expect(result.value.parts[1]!.recipientId).toBe('seller')
+    expect(result.value.parts[0]?.recipientId).toBe('platform')
+    expect(result.value.parts[1]?.recipientId).toBe('seller')
   })
 
   it('retorna erro se lista de partes estiver vazia', () => {
