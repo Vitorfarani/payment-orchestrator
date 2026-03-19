@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 4 em andamento. Concluídos: todos os repositórios + KnexUnitOfWork + observabilidade + IdempotencyStore + SensitiveDataMasker + gateways (Stripe + Asaas) + jobOptions + OutboxRelay + PaymentWorker + **LedgerWorker ✅ (17 testes)** + **SettlementWorker ✅ (12 testes)** + **GracefulShutdown ✅ (7 testes)** (338 testes totais). **Próximo:** AsaasAdapter (4.3) + Fase 5 (Use Cases).
+> **Última atualização:** Bloco pré-Fase 5 concluído. Testes de integração completos para todos os repositórios + KnexUnitOfWork + IdempotencyStore (Redis real + PostgreSQL real via Testcontainers). 10 suites de integração, 131 testes verdes. **Próximo:** Fase 5 (Use Cases).
 
 ---
 
@@ -291,7 +291,8 @@ await uow.run(async (repos) => {
 
 **4.4 — Idempotency Store** ✅
 - ✅ `src/infrastructure/idempotency/IdempotencyStore.ts` — duas camadas: Redis TTL + PostgreSQL durável (ADR-002)
-- ✅ `tests/infrastructure/idempotency/IdempotencyStore.test.ts`
+- ✅ `tests/infrastructure/idempotency/IdempotencyStore.test.ts` — testes unitários (mocks)
+- ✅ `tests/infrastructure/idempotency/IdempotencyStore.integration.spec.ts` — Redis real + PG real (Testcontainers)
 
 **4.5 — Workers BullMQ** 🔄
 - ✅ `src/infrastructure/queue/workers/PaymentWorker.ts` — authorize + capture em 1 UoW atômica; CIRCUIT_OPEN → relança (BullMQ retry); falha terminal → PROCESSING → FAILED; 19 testes
@@ -311,10 +312,28 @@ await uow.run(async (repos) => {
 ### ADRs relevantes para esta fase
 - ADR-002, ADR-008, ADR-009, ADR-012, ADR-013, ADR-017, ADR-018, ADR-019
 
+### Testes de integração — bloco pré-Fase 5 ✅ CONCLUÍDO
+
+| Suite | Testes | Infraestrutura |
+|---|---|---|
+| `KnexUnitOfWork.integration.spec.ts` | commit, rollback, atomicidade, isolamento | PostgreSQL |
+| `PostgresPaymentRepository.integration.spec.ts` | save, update, findById, findByIdForUpdate, FK | PostgreSQL |
+| `PostgresOutboxRepository.integration.spec.ts` | save, batch, SKIP LOCKED, markProcessed, recordFailure | PostgreSQL |
+| `PostgresLedgerRepository.integration.spec.ts` | save, findById, existsByOutboxEventId | PostgreSQL |
+| `LedgerQueryRepository.integration.spec.ts` | MATERIALIZED VIEW, REFRESH CONCURRENTLY | PostgreSQL |
+| `PostgresSettlementRepository.integration.spec.ts` | save, update, findDueItems (índice parcial), findByIdForUpdate (lock) | PostgreSQL |
+| `PostgresAuditLogRepository.integration.spec.ts` | INSERT-only, RBAC: DELETE/UPDATE falham via payment_app_role | PostgreSQL |
+| `IdempotencyStore.integration.spec.ts` | tryAcquire, complete, fail, race condition COMPLETED, Redis TTL expiry | PostgreSQL + Redis |
+| `PostgresSplitRuleRepository.integration.spec.ts` | save, findActive, constraints | PostgreSQL |
+| `migrations.integration.spec.ts` | 13 migrations, trigger double-entry, constraints | PostgreSQL |
+
+**131 testes de integração verdes** — todos com banco e Redis reais (Testcontainers), zero mocks de infraestrutura.
+
 ### Critério de conclusão
-- Testes de integração com Testcontainers verdes
-- Teste de race condition da idempotência
-- `OutboxRelay` testado com `SELECT FOR UPDATE SKIP LOCKED`
+- ✅ Testes de integração com Testcontainers verdes (131/131)
+- ✅ Teste de race condition da idempotência (ADR-002 passo 4)
+- ✅ `OutboxRelay` testado com `SELECT FOR UPDATE SKIP LOCKED`
+- ✅ RBAC de audit_logs testado contra banco real (REVOKE DELETE/UPDATE)
 
 ---
 
