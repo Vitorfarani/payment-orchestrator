@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Bloco pré-Fase 5 concluído. Testes de integração completos para todos os repositórios + KnexUnitOfWork + IdempotencyStore (Redis real + PostgreSQL real via Testcontainers). 10 suites de integração, 131 testes verdes. **Próximo:** Fase 5 (Use Cases).
+> **Última atualização:** Fase 4 concluída. AsaasAdapter implementado, runbooks queue-backlog e payment-stuck-processing criados, specs de integração no path correto. **Próximo:** Fase 5 (Use Cases).
 
 ---
 
@@ -14,8 +14,8 @@ Fase 0 — Documentação    ✅ CONCLUÍDA
 Fase 1 — Fundação        ✅ CONCLUÍDA
 Fase 2 — Domain Layer    ✅ CONCLUÍDA
 Fase 3 — Banco de Dados  ✅ CONCLUÍDA
-Fase 4 — Infrastructure  🔄 EM ANDAMENTO
-Fase 5 — Use Cases       ⏳ AGUARDANDO
+Fase 4 — Infrastructure  ✅ CONCLUÍDA
+Fase 5 — Use Cases       🔄 EM ANDAMENTO
 Fase 6 — Web Layer       ⏳ AGUARDANDO
 Fase 7 — Frontend        ⏳ AGUARDANDO
 ```
@@ -287,7 +287,7 @@ await uow.run(async (repos) => {
 - ✅ `src/infrastructure/gateway/CircuitBreakerFactory.ts` — factory genérica com métricas + log (ADR-008)
 - ✅ `src/infrastructure/gateway/StripeAdapter.ts` — implementa IPaymentGateway com 4 circuit breakers separados; `StripeClient` como interface mínima injetável
 - ✅ `tests/infrastructure/gateway/StripeAdapter.test.ts` — 19 testes (happy path, STRIPE_ERROR, CIRCUIT_OPEN, metadata, idempotencyKey)
-- ⏳ `AsaasAdapter` — segunda implementação de `IPaymentGateway`
+- ✅ `AsaasAdapter` — segunda implementação de `IPaymentGateway`
 
 **4.4 — Idempotency Store** ✅
 - ✅ `src/infrastructure/idempotency/IdempotencyStore.ts` — duas camadas: Redis TTL + PostgreSQL durável (ADR-002)
