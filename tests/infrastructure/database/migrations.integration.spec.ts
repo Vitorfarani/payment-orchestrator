@@ -43,7 +43,7 @@ beforeAll(async () => {
     client: 'pg',
     connection: connectionUri,
     migrations: {
-      directory: path.resolve(__dirname, 'migrations'),
+      directory: path.resolve(__dirname, '../../../src/infrastructure/database/migrations'),
       loadExtensions: ['.ts'],
     },
   })
