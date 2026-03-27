@@ -212,7 +212,7 @@ O BullMQ detecta jobs `stalled` automaticamente via `stalledInterval` (padrão: 
    ```sql
    SELECT * FROM split_rules
    WHERE seller_id = '<seller_id>'
-   AND is_active = true;
+   AND active = true;
    ```
 3. Se não existir, crie a split rule via API antes de reprocessar:
    > ⚠️ **A definir** — endpoint `POST /sellers/:id/split-rules` será implementado na Fase 6.
