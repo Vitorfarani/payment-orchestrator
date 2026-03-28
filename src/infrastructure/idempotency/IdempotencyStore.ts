@@ -16,40 +16,13 @@
 import type { Knex } from 'knex'
 import type { Redis } from 'ioredis'
 import { IdempotencyKey } from '../../domain/shared/types'
+import type {
+  IIdempotencyStore,
+  IdempotencyRecord,
+  IdempotencyStatus,
+} from '../../application/shared/IIdempotencyStore'
 
-// ─── Tipos públicos ───────────────────────────────────────────────────────────
-
-export type IdempotencyStatus = 'PROCESSING' | 'COMPLETED'
-
-export interface IdempotencyRecord {
-  readonly key:          IdempotencyKey
-  readonly status:       IdempotencyStatus
-  readonly statusCode:   number | null
-  readonly responseBody: unknown
-  readonly createdAt:    Date
-  readonly expiresAt:    Date
-}
-
-export interface IIdempotencyStore {
-  /**
-   * Tenta registrar a chave atomicamente.
-   * Retorna { isNew: true }  → primeira requisição, pode processar.
-   * Retorna { isNew: false } → já existe, retornar record ao caller.
-   */
-  tryAcquire(key: IdempotencyKey): Promise<
-    | { isNew: true }
-    | { isNew: false; record: IdempotencyRecord }
-  >
-
-  /** Marca operação como concluída e popula o cache Redis. */
-  complete(key: IdempotencyKey, statusCode: number, responseBody: unknown): Promise<void>
-
-  /**
-   * Remove a chave do PostgreSQL para liberar retry.
-   * Não popula Redis — próxima tentativa percorre o fluxo normal (ADR-002).
-   */
-  fail(key: IdempotencyKey): Promise<void>
-}
+export type { IIdempotencyStore, IdempotencyRecord, IdempotencyStatus }
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
