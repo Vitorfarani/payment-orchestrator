@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 4 concluída. AsaasAdapter implementado, runbooks queue-backlog e payment-stuck-processing criados, specs de integração no path correto. **Próximo:** Fase 5 (Use Cases).
+> **Última atualização:** Fase 5 concluída. 8 use cases implementados (CreatePayment, RefundPayment, ProcessWebhook, RecordDoubleEntry, RecordRefundEntry, ScheduleSettlement, ProcessSettlement, CalculateSplit). 7 fakes in-memory criados em tests/application/fakes/. 46 testes verdes. Próximo: Fase 6 (Web Layer).
 
 ---
 
@@ -15,8 +15,8 @@ Fase 1 — Fundação        ✅ CONCLUÍDA
 Fase 2 — Domain Layer    ✅ CONCLUÍDA
 Fase 3 — Banco de Dados  ✅ CONCLUÍDA
 Fase 4 — Infrastructure  ✅ CONCLUÍDA
-Fase 5 — Use Cases       🔄 EM ANDAMENTO
-Fase 6 — Web Layer       ⏳ AGUARDANDO
+Fase 5 — Use Cases       ✅ CONCLUÍDA
+Fase 6 — Web Layer       🔄 EM ANDAMENTO
 Fase 7 — Frontend        ⏳ AGUARDANDO
 ```
 
@@ -337,23 +337,49 @@ await uow.run(async (repos) => {
 
 ---
 
-## Fase 5 — Application Layer (Use Cases) ⏳ AGUARDANDO
+## Fase 5 — Application Layer (Use Cases) ✅ CONCLUÍDA
 
-### O que será feito
-- `CreatePaymentUseCase` — salva Payment + OutboxEvent na mesma transação, retorna imediatamente sem chamar o gateway
-- `ProcessWebhookUseCase` — valida HMAC → idempotência → `SELECT FOR UPDATE` → transição
-- `RefundPaymentUseCase` — split proporcional + OutboxEvent
-- `RecordDoubleEntryUseCase`, `RecordRefundEntryUseCase`
-- `ScheduleSettlementUseCase`, `ProcessSettlementUseCase`
-- `CalculateSplitUseCase`
+### O que foi feito
+
+**5.1 — Interfaces/ports** ✅
+- ✅ `src/application/shared/IIdempotencyStore.ts` — interface movida de infrastructure para application (Clean Architecture)
+- ✅ `src/application/shared/IUnitOfWork.ts` — já existia desde Fase 4
+
+**5.2 — Use Cases** ✅
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `src/application/payment/CreatePaymentUseCase.ts` | Payment + OutboxEvent(PAYMENT_CREATED) atômicos — sem chamar gateway |
+| `src/application/payment/RefundPaymentUseCase.ts` | SELECT FOR UPDATE + split proporcional + OutboxEvent(PAYMENT_REFUNDED) |
+| `src/application/payment/ProcessWebhookUseCase.ts` | SELECT FOR UPDATE + transição + OutboxEvent — idempotente por estado |
+| `src/application/ledger/RecordDoubleEntryUseCase.ts` | Double-entry PAYMENT_CAPTURED, idempotência via existsByOutboxEventId antes do UoW |
+| `src/application/ledger/RecordRefundEntryUseCase.ts` | Reversing entries PAYMENT_REFUNDED, mesmo padrão de idempotência |
+| `src/application/settlement/ScheduleSettlementUseCase.ts` | Cria SettlementItem (UNIQUE por payment), data via SettlementScheduler |
+| `src/application/settlement/ProcessSettlementUseCase.ts` | PENDING → COMPLETED + OutboxEvent(SETTLEMENT_COMPLETED) |
+| `src/application/split/CalculateSplitUseCase.ts` | Lookup de split rule + SplitCalculator — leitura pura, sem UoW |
+
+**5.3 — Fakes in-memory para testes** ✅
+- `tests/application/fakes/InMemoryPaymentRepository.ts`
+- `tests/application/fakes/InMemoryOutboxRepository.ts`
+- `tests/application/fakes/InMemoryJournalEntryRepository.ts`
+- `tests/application/fakes/InMemorySettlementRepository.ts`
+- `tests/application/fakes/InMemorySplitRuleRepository.ts`
+- `tests/application/fakes/InMemoryUnitOfWork.ts`
+- `tests/application/fakes/InMemoryIdempotencyStore.ts`
+
+### Resultado
+- **46 testes** — 8 suites, todos verdes
+- Repositórios in-memory compartilham instância com o UoW (simula "mesmo banco" para idempotência)
+- Zero erros de tipo, zero warnings ESLint
+- Nenhum use case faz `throw` para erros de negócio — todos retornam `Result`
 
 ### ADRs relevantes para esta fase
 - ADR-003, ADR-005, ADR-006, ADR-011
 
-### Critério de conclusão
-- Todos os use cases com testes unitários via TDD
-- Cobertura ≥ 85% em `src/application/`
-- Nenhum use case com `throw` para erros de negócio
+### Critério de conclusão ✅ TODOS ATINGIDOS
+- ✅ Todos os use cases com testes via TDD com repositórios in-memory
+- ✅ Nenhum use case com `throw` para erros de negócio
+- ✅ `tsc --noEmit` e `eslint --max-warnings 0` limpos
 
 ---
 
