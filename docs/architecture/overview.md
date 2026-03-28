@@ -98,7 +98,7 @@ A state machine de `PaymentStatus` é o coração deste contexto. 13 estados, tr
 ```
 PENDING → PROCESSING → AUTHORIZED → CAPTURED → SETTLED
                     ↘ REQUIRES_ACTION  ↘ CANCELLED  ↓         ↓
-                    ↘ FAILED                  REFUNDED  PARTIALLY_REFUNDED
+                    ↘ FAILED                  REFUNDED  PARTIALLY_REFUNDED → REFUNDED
                                               DISPUTED → CHARGEBACK_WON
                                                        → CHARGEBACK_LOST
 ```
