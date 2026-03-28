@@ -1,3 +1,4 @@
+import { UnrecoverableError } from 'bullmq'
 import type { Job } from 'bullmq'
 import type { Logger } from 'pino'
 import type { IUnitOfWork, ITransactionalRepositories } from '../../../src/application/shared/IUnitOfWork'
@@ -6,17 +7,20 @@ import type { IPaymentGateway } from '../../../src/domain/payment/IPaymentGatewa
 import type { IOutboxRepository } from '../../../src/domain/outbox/IOutboxRepository'
 import type { IJournalEntryRepository } from '../../../src/domain/ledger/IJournalEntryRepository'
 import type { ISettlementRepository } from '../../../src/domain/settlement/ISettlementRepository'
+import type { ISplitRuleRepository } from '../../../src/domain/split/ISplitRuleRepository'
 import type { PaymentStatus } from '../../../src/domain/payment/value-objects/PaymentStatus'
 import { Payment } from '../../../src/domain/payment/Payment'
+import { SplitRule } from '../../../src/domain/split/SplitRule'
 import { GatewayError } from '../../../src/domain/shared/errors'
 import { ok, err } from '../../../src/domain/shared/Result'
-import { PaymentId, SellerId, Cents, IdempotencyKey } from '../../../src/domain/shared/types'
+import { PaymentId, SellerId, Cents, IdempotencyKey, SplitRuleId, CommissionRate } from '../../../src/domain/shared/types'
 import { PaymentWorker } from '../../../src/infrastructure/queue/workers/PaymentWorker'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const PAYMENT_ID = '11111111-1111-4111-8111-111111111111'
 const SELLER_ID  = '22222222-2222-4222-8222-222222222222'
+const RULE_ID    = '33333333-3333-4333-8333-333333333333'
 
 function makePayment(status: PaymentStatus = 'PENDING'): Payment {
   return Payment.reconstitute({
@@ -27,6 +31,14 @@ function makePayment(status: PaymentStatus = 'PENDING'): Payment {
     status,
     createdAt:      new Date(),
     updatedAt:      new Date(),
+  })
+}
+
+function makeSplitRule(rate = 0.10): SplitRule {
+  return SplitRule.create({
+    id:             SplitRuleId.of(RULE_ID),
+    sellerId:       SellerId.of(SELLER_ID),
+    commissionRate: CommissionRate.of(rate),
   })
 }
 
@@ -92,19 +104,29 @@ function makeUow(repos: jest.Mocked<ITransactionalRepositories>): jest.Mocked<IU
   }
 }
 
+function makeSplitRuleRepo(rule: SplitRule | null = makeSplitRule()): jest.Mocked<ISplitRuleRepository> {
+  return {
+    save:                  jest.fn(),
+    findById:              jest.fn(),
+    findActiveBySellerId:  jest.fn().mockResolvedValue(rule),
+  }
+}
+
 function makeLogger(): Logger {
   return { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() } as unknown as Logger
 }
 
 function makeWorker(
-  repos: jest.Mocked<ITransactionalRepositories>,
-  gateway: jest.Mocked<IPaymentGateway>,
+  repos:         jest.Mocked<ITransactionalRepositories>,
+  gateway:       jest.Mocked<IPaymentGateway>,
+  splitRuleRepo: jest.Mocked<ISplitRuleRepository> = makeSplitRuleRepo(),
 ): PaymentWorker {
   return new PaymentWorker({
-    uow:         makeUow(repos),
+    uow:          makeUow(repos),
     gateway,
-    gatewayName: 'stripe',
-    logger:      makeLogger(),
+    gatewayName:  'stripe',
+    splitRuleRepo,
+    logger:       makeLogger(),
   })
 }
 
@@ -263,7 +285,6 @@ describe('PaymentWorker', () => {
 
       await worker.process(makeJob())
 
-      // O pagamento vai direto de PROCESSING para FAILED, nunca persiste AUTHORIZED
       expect(payment.status).toBe('FAILED')
     })
   })
@@ -305,7 +326,7 @@ describe('PaymentWorker', () => {
     })
   })
 
-  describe('happy path', () => {
+  describe('happy path — split calculation', () => {
     it('transiciona para CAPTURED e salva PAYMENT_CAPTURED no outbox', async () => {
       const payment = makePayment('PENDING')
       const repos   = makeRepos(payment)
@@ -320,24 +341,67 @@ describe('PaymentWorker', () => {
       )
     })
 
-    it('inclui sellerId e amount no payload do PAYMENT_CAPTURED', async () => {
-      const payment = makePayment('PENDING')
-      const repos   = makeRepos(payment)
-      const worker  = makeWorker(repos, makeGateway())
+    it('inclui platformAmountCents e sellerAmountCents no payload do PAYMENT_CAPTURED', async () => {
+      // amount=10000, rate=10% → platform=1000, seller=9000
+      const payment      = makePayment('PENDING')
+      const repos        = makeRepos(payment)
+      const splitRuleRepo = makeSplitRuleRepo(makeSplitRule(0.10))
+      const worker       = makeWorker(repos, makeGateway(), splitRuleRepo)
 
       await worker.process(makeJob())
 
-      expect(repos.outbox.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventType: 'PAYMENT_CAPTURED',
-        }),
-      )
-      const savedEvent = jest.mocked(repos.outbox.save).mock.calls[0]?.[0]
+      const savedEvent = jest.mocked(repos.outbox.save).mock.lastCall?.[0]
       expect(savedEvent?.payload).toMatchObject({
-        paymentId: PAYMENT_ID,
-        sellerId:  SELLER_ID,
-        amount:    10_000,
+        paymentId:            PAYMENT_ID,
+        sellerId:             SELLER_ID,
+        amount:               10_000,
+        platformAmountCents:  1_000,
+        sellerAmountCents:    9_000,
       })
+    })
+
+    it('aplica Math.floor na comissão da plataforma e remainder vai ao seller', async () => {
+      // amount=10001, rate=10% → Math.floor(10001 * 0.1) = 1000, seller = 9001
+      const payment = Payment.reconstitute({
+        id:             PaymentId.of(PAYMENT_ID),
+        sellerId:       SellerId.of(SELLER_ID),
+        amount:         Cents.of(10_001),
+        idempotencyKey: IdempotencyKey.of('idem-key-1234'),
+        status:         'PENDING',
+        createdAt:      new Date(),
+        updatedAt:      new Date(),
+      })
+      const repos        = makeRepos(payment)
+      const splitRuleRepo = makeSplitRuleRepo(makeSplitRule(0.10))
+      const worker       = makeWorker(repos, makeGateway(), splitRuleRepo)
+
+      await worker.process(makeJob())
+
+      const savedEvent = jest.mocked(repos.outbox.save).mock.lastCall?.[0]
+      expect(savedEvent?.payload).toMatchObject({
+        platformAmountCents: 1_000,
+        sellerAmountCents:   9_001,
+      })
+    })
+
+    it('consulta split rule pelo sellerId do pagamento', async () => {
+      const payment       = makePayment('PENDING')
+      const repos         = makeRepos(payment)
+      const splitRuleRepo = makeSplitRuleRepo()
+      const worker        = makeWorker(repos, makeGateway(), splitRuleRepo)
+
+      await worker.process(makeJob())
+
+      expect(splitRuleRepo.findActiveBySellerId).toHaveBeenCalledWith(SellerId.of(SELLER_ID))
+    })
+
+    it('lança UnrecoverableError quando não existe split rule ativa para o seller', async () => {
+      const payment       = makePayment('PENDING')
+      const repos         = makeRepos(payment)
+      const splitRuleRepo = makeSplitRuleRepo(null)  // sem split rule
+      const worker        = makeWorker(repos, makeGateway(), splitRuleRepo)
+
+      await expect(worker.process(makeJob())).rejects.toThrow(UnrecoverableError)
     })
 
     it('funciona corretamente quando pagamento já está em PROCESSING (retry idempotente)', async () => {

@@ -1,16 +1,26 @@
+import { UnrecoverableError } from 'bullmq'
 import type { Job } from 'bullmq'
 import type { Logger } from 'pino'
 import type { IUnitOfWork } from '../../../application/shared/IUnitOfWork'
 import type { IPaymentGateway } from '../../../domain/payment/IPaymentGateway'
+import type { ISplitRuleRepository } from '../../../domain/split/ISplitRuleRepository'
+import { SplitCalculator } from '../../../domain/split/SplitCalculator'
 import { PaymentId } from '../../../domain/shared/types'
 import { OutboxEvent } from '../../../domain/outbox/OutboxEvent'
 
 export interface PaymentWorkerOptions {
-  readonly uow:         IUnitOfWork
-  readonly gateway:     IPaymentGateway
+  readonly uow:           IUnitOfWork
+  readonly gateway:       IPaymentGateway
   /** Nome do gateway injetado em `setGatewayInfo` — ex: 'stripe', 'asaas'. */
-  readonly gatewayName: string
-  readonly logger:      Logger
+  readonly gatewayName:   string
+  /**
+   * Repositório de split rules — injetado fora do UoW (leitura pura,
+   * split rules são configuração, não dados transacionais).
+   * Consultado após capture para calcular platformAmountCents e
+   * sellerAmountCents antes de emitir PAYMENT_CAPTURED (ADR-005).
+   */
+  readonly splitRuleRepo: ISplitRuleRepository
+  readonly logger:        Logger
 }
 
 /**
@@ -20,11 +30,16 @@ export interface PaymentWorkerOptions {
  *   1. SELECT FOR UPDATE no pagamento — evita race condition com outros workers
  *   2. Idempotência — se já está em estado final, retorna silencioso
  *   3. Chama gateway.authorize() → gateway.capture() de forma síncrona
- *   4. Salva Payment atualizado + OutboxEvent em uma única transação (Outbox Pattern)
+ *   4. Calcula split (platform + seller) via SplitCalculator (ADR-005)
+ *   5. Salva Payment atualizado + OutboxEvent em uma única transação (Outbox Pattern)
+ *      O payload do PAYMENT_CAPTURED inclui platformAmountCents e sellerAmountCents
+ *      para que LedgerWorker e SettlementWorker possam operar sem re-calcular.
  *
  * Tratamento de erros:
  *   - CIRCUIT_OPEN → lança erro para BullMQ fazer retry automático (sem persistência)
  *   - Erro terminal (cartão recusado, etc.) → transiciona para FAILED e salva atomicamente
+ *   - Split rule ausente após capture → UnrecoverableError (DLQ) — captura já ocorreu
+ *     no gateway, retry não resolve; requer intervenção manual via runbook
  *   - Exceção de infraestrutura → propaga; BullMQ retenta via backoff exponencial
  *
  * Estados atômicos: AUTHORIZED nunca é persistido isolado.
@@ -150,6 +165,24 @@ export class PaymentWorker {
         return
       }
 
+      // ─── Split calculation ─────────────────────────────────────────────────
+      // Consultado após capture: a captura já ocorreu no gateway, portanto
+      // a ausência de split rule é UnrecoverableError — DLQ para intervenção manual.
+
+      const splitRule = await this.opts.splitRuleRepo.findActiveBySellerId(payment.sellerId)
+
+      if (splitRule === null) {
+        throw new UnrecoverableError(
+          `No active split rule found for seller ${payment.sellerId}. ` +
+          `Payment ${payment.id} was captured but cannot be accounted — manual intervention required.`,
+        )
+      }
+
+      const splitResult = SplitCalculator.calculate(payment.amount, splitRule.commissionRate)
+      if (!splitResult.ok) throw splitResult.error
+
+      const { platform: platformAmountCents, seller: sellerAmountCents } = splitResult.value
+
       // ─── Sucesso — transição atômica PROCESSING → AUTHORIZED → CAPTURED ────
       // Ambas as transições em memória; uma única escrita no banco.
 
@@ -165,14 +198,22 @@ export class PaymentWorker {
         aggregateId:   payment.id,
         aggregateType: 'Payment',
         payload: {
-          paymentId: payment.id,
-          sellerId:  payment.sellerId,
-          amount:    payment.amount,
+          paymentId:           payment.id,
+          sellerId:            payment.sellerId,
+          amount:              payment.amount,
+          platformAmountCents,
+          sellerAmountCents,
         },
       }))
 
       this.opts.logger.info(
-        { service: 'PaymentWorker', paymentId, gatewayPaymentId },
+        {
+          service:             'PaymentWorker',
+          paymentId,
+          gatewayPaymentId,
+          platformAmountCents,
+          sellerAmountCents,
+        },
         'Payment captured successfully',
       )
     })
