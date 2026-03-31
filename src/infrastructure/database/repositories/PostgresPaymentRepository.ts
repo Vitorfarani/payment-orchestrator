@@ -120,4 +120,11 @@ export class PostgresPaymentRepository implements IPaymentRepository {
     const rows = await this.db<PaymentRow>('payments').where({ seller_id: sellerId, status })
     return rows.map(row => Payment.reconstitute(rowToInput(row)))
   }
+
+  async findStuckInProcessing(olderThan: Date): Promise<Payment[]> {
+    const rows = await this.db<PaymentRow>('payments')
+      .where({ status: 'PROCESSING' })
+      .where('updated_at', '<', olderThan)
+    return rows.map(row => Payment.reconstitute(rowToInput(row)))
+  }
 }

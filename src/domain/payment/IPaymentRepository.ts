@@ -38,4 +38,13 @@ export interface IPaymentRepository {
 
   /** Usado por queries operacionais e pelo SettlementWorker. */
   findBySellerAndStatus(sellerId: SellerId, status: PaymentStatus): Promise<Payment[]>
+
+  /**
+   * Busca pagamentos presos em PROCESSING há mais de `olderThan` tempo.
+   * Usado pelo PaymentReconciliationWorker (ADR-003).
+   *
+   * Em produção retorna pagamentos com `status = 'PROCESSING' AND updated_at < olderThan`.
+   * Um pagamento neste estado por mais de 10 minutos indica falha não recuperada pelo worker.
+   */
+  findStuckInProcessing(olderThan: Date): Promise<Payment[]>
 }

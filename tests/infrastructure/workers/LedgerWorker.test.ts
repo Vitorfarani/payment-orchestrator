@@ -61,8 +61,9 @@ function makeRepos(journalRepo: jest.Mocked<IJournalEntryRepository>): jest.Mock
       update:                jest.fn(),
       findById:              jest.fn(),
       findByIdForUpdate:     jest.fn(),
-      findByIdempotencyKey:  jest.fn(),
-      findBySellerAndStatus: jest.fn(),
+      findByIdempotencyKey:    jest.fn(),
+      findBySellerAndStatus:   jest.fn(),
+      findStuckInProcessing:   jest.fn(),
     } as jest.Mocked<IPaymentRepository>,
     journalEntries: journalRepo,
     outbox: {

@@ -69,8 +69,9 @@ function makeRepos(payment: Payment | null): jest.Mocked<ITransactionalRepositor
       update:                jest.fn().mockResolvedValue(undefined),
       findById:              jest.fn(),
       findByIdForUpdate:     jest.fn().mockResolvedValue(payment),
-      findByIdempotencyKey:  jest.fn(),
-      findBySellerAndStatus: jest.fn(),
+      findByIdempotencyKey:    jest.fn(),
+      findBySellerAndStatus:   jest.fn(),
+      findStuckInProcessing:   jest.fn(),
     } as jest.Mocked<IPaymentRepository>,
     journalEntries: {
       save:                   jest.fn(),

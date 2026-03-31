@@ -39,6 +39,13 @@ export class InMemoryPaymentRepository implements IPaymentRepository {
     return Promise.resolve(result)
   }
 
+  findStuckInProcessing(olderThan: Date): Promise<Payment[]> {
+    const result = [...this.store.values()].filter(
+      (p) => p.status === 'PROCESSING' && p.updatedAt < olderThan,
+    )
+    return Promise.resolve(result)
+  }
+
   /** Helpers de teste */
   all(): Payment[] { return [...this.store.values()] }
   count(): number  { return this.store.size }
