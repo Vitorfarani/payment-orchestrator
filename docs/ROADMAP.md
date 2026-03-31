@@ -3,7 +3,7 @@
 > Documento de continuidade do projeto. Contém estado atual, todas as fases,
 > regras obrigatórias e prompts prontos para retomar o trabalho em qualquer sessão.
 >
-> **Última atualização:** Fase 5 concluída. 8 use cases implementados (CreatePayment, RefundPayment, ProcessWebhook, RecordDoubleEntry, RecordRefundEntry, ScheduleSettlement, ProcessSettlement, CalculateSplit). 7 fakes in-memory criados em tests/application/fakes/. 46 testes verdes. Próximo: Fase 6 (Web Layer).
+> **Última atualização:** Fase 6 concluída. Web Layer completa: 5 middlewares, 4 controllers, 4 rotas, DTOs com Zod, contract tests Pact, E2E (12 cenários), bootstrap completo em `src/index.ts`. Pós-fase 6: conformidade total com ADR-003 e ADR-007 — `PaymentReconciliationWorker` e `LedgerRefreshWorker` implementados. 552 testes verdes, tsc limpo. Próximo: Fase 7 (Frontend).
 
 ---
 
@@ -16,8 +16,8 @@ Fase 2 — Domain Layer    ✅ CONCLUÍDA
 Fase 3 — Banco de Dados  ✅ CONCLUÍDA
 Fase 4 — Infrastructure  ✅ CONCLUÍDA
 Fase 5 — Use Cases       ✅ CONCLUÍDA
-Fase 6 — Web Layer       🔄 EM ANDAMENTO
-Fase 7 — Frontend        ⏳ AGUARDANDO
+Fase 6 — Web Layer       ✅ CONCLUÍDA
+Fase 7 — Frontend        🔄 EM ANDAMENTO
 ```
 
 **Ambiente de desenvolvimento:** Windows + PowerShell
@@ -383,23 +383,71 @@ await uow.run(async (repos) => {
 
 ---
 
-## Fase 6 — Web Layer (API HTTP) ⏳ AGUARDANDO
+## Fase 6 — Web Layer (API HTTP) ✅ CONCLUÍDA
 
-### O que será feito
-- Middlewares: `RequestContext`, `Idempotency`, `Auth`, `RateLimit`, `ErrorHandler`
-- Endpoints: `POST /payments`, `GET /payments/:id`, `POST /webhooks/stripe`, `POST /webhooks/asaas`, `POST /payments/:id/refund`, `GET /ledger/summary`, `GET /health/live`, `GET /health/ready`, `GET /metrics`
-- DTOs com Zod (validação na fronteira do sistema)
-- Contract Tests com Pact
-- E2E Tests com Testcontainers + Supertest
+### O que foi feito
+
+**6.0 — Use Case complementar**
+- ✅ `src/application/payment/GetPaymentUseCase.ts` — query pura sem UoW
+
+**6.1 — Middlewares**
+- ✅ `RequestContextMiddleware` — `request_id` + `trace_id` em todo log (ADR-017)
+- ✅ `IdempotencyMiddleware` — replay transparente, prefixo `merchantId:key` (ADR-002)
+- ✅ `AuthMiddleware` — JWT Bearer, injeta `merchantId`/`sellerId`/`role` em `res.locals`
+- ✅ `RateLimitMiddleware` — sliding window por merchant via Redis INCR/EXPIRE
+- ✅ `ErrorHandlerMiddleware` — `DomainError` → HTTP, libera idempotency key em 5xx
+
+**6.2 — DTOs com Zod**
+- ✅ `src/web/dtos/payment.dto.ts` — allowlist explícita nos responses (ADR-019 camada 3)
+- ✅ `src/web/dtos/webhook.dto.ts` — mapeamento de eventos Stripe e Asaas
+
+**6.3 — Controllers**
+- ✅ `PaymentController` — create (201), getById (200 + Retry-After), refund (200) + audit log
+- ✅ `WebhookController` — HMAC Stripe, token Asaas, 200 em todos os erros de negócio
+- ✅ `LedgerController` — getSummary com CQRS direto no `LedgerQueryRepository`
+- ✅ `HealthController` — `/health/live` (200 sempre) e `/health/ready` (503 se db/redis down)
+
+**6.4 — Rotas**
+- ✅ `paymentRoutes`, `webhookRoutes`, `ledgerRoutes`, `healthRoutes`
+
+**6.5 — App Factory e Bootstrap**
+- ✅ `src/web/app.ts` — factory injetável, webhooks montados antes do `express.json()` global
+- ✅ `src/index.ts` — bootstrap completo: tracing → env vars → db → repos → use cases → app → workers → graceful shutdown
+
+**6.6 — Testes unitários (web layer)**
+- ✅ `tests/web/middlewares/` — 5 suites
+- ✅ `tests/web/controllers/` — 4 suites
+- ✅ `tests/web/dtos/webhook.dto.test.ts` — todos os event type mappings
+
+**6.7 — Contract Tests (Pact)**
+- ✅ `tests/contract/StripeAdapter.contract.spec.ts` — 5 interações
+- ✅ `tests/contract/AsaasAdapter.contract.spec.ts` — 4 interações
+
+**6.8 — E2E Tests**
+- ✅ `tests/e2e/payment-flow.e2e.spec.ts` — 12 cenários (Testcontainers + Supertest)
+
+**6.9 — Conformidade ADR-003 e ADR-007 (pós-fase)**
+- ✅ `PaymentReconciliationWorker` — detecta PROCESSING > 10 min, reconcilia com gateway (ADR-003)
+- ✅ `LedgerRefreshWorker` — mantém `ledger_summary` atualizada (ADR-007)
+- ✅ `IPaymentRepository.findStuckInProcessing()` — adicionada à interface e implementações
+
+### Resultado
+- **552 testes** — 44 suites, todos verdes
+- `tsc --noEmit` e `eslint --max-warnings 0` limpos
+- Zero vulnerabilidades (`npm audit`)
+- Todos os 20 ADRs cobertos
 
 ### ADRs relevantes para esta fase
-- ADR-002, ADR-003, ADR-017, ADR-018, ADR-019, ADR-020
+- ADR-002, ADR-003, ADR-007, ADR-017, ADR-018, ADR-019, ADR-020
 
-### Critério de conclusão
-- Todos os endpoints funcionando
-- Contract tests Pact verdes
-- E2E tests verdes
-- CI completo verde
+### Critério de conclusão ✅ TODOS ATINGIDOS
+- ✅ Todos os 9 endpoints respondendo
+- ✅ `tsc --noEmit` — zero erros de tipo
+- ✅ `eslint --max-warnings 0` — zero warnings
+- ✅ Contract tests Pact verdes
+- ✅ E2E tests verdes (12 cenários)
+- ✅ Nenhum import de `knex`/`ioredis`/`bullmq` dentro de `src/web/`
+- ✅ Nenhum dado sensível exposto nos response DTOs
 
 ---
 
