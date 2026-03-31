@@ -42,7 +42,7 @@ services:
       - payment-net
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     healthcheck:
@@ -59,6 +59,8 @@ services:
     restart: unless-stopped
     networks:
       - payment-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Funciona em Linux, Mac e Windows
     ports:
       - "9090:9090"
     volumes:
@@ -92,7 +94,8 @@ services:
       GF_INSTALL_PLUGINS: ""
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       prometheus:
         condition: service_healthy

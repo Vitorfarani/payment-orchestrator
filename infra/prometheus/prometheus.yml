@@ -3,6 +3,8 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
+  # API rodando no host (npm run dev). Funciona em Windows/Mac via host.docker.internal.
+  # Em Linux: `docker compose up` sobe a API como serviço "api" — trocar pelo nome do serviço.
   - job_name: "payment-orchestrator"
     static_configs:
       - targets: ["host.docker.internal:3000"]
@@ -11,3 +13,4 @@ scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+
