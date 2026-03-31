@@ -107,4 +107,20 @@ describe('CalculateSplitUseCase', () => {
     if (result.ok) return
     expect(result.error.code).toBe('BUSINESS_RULE_ERROR')
   })
+
+  it('propaga erro de SplitCalculator quando amountCents é zero', async () => {
+    const repo    = new InMemorySplitRuleRepository()
+    const useCase = new CalculateSplitUseCase(repo)
+    await repo.save(makeSplitRule(0.10))
+
+    // SplitCalculator.calculate retorna err quando total <= 0
+    const result = await useCase.execute({
+      sellerId:    SellerId.of(SELLER_ID),
+      amountCents: Cents.of(0),
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('BUSINESS_RULE_ERROR')
+  })
 })

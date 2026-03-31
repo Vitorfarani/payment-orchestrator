@@ -1,6 +1,8 @@
 import { ProcessSettlementUseCase }      from '../../../src/application/settlement/ProcessSettlementUseCase'
 import { InMemoryUnitOfWork }            from '../fakes/InMemoryUnitOfWork'
 import { SettlementItem }                from '../../../src/domain/settlement/SettlementItem'
+import { BusinessRuleError }             from '../../../src/domain/shared/errors'
+import { err }                           from '../../../src/domain/shared/Result'
 import { PaymentId, SellerId, Cents, SettlementItemId } from '../../../src/domain/shared/types'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -90,6 +92,42 @@ describe('ProcessSettlementUseCase', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
+  })
+
+  it('propaga BusinessRuleError se startProcessing() falha inesperadamente', async () => {
+    const uow     = new InMemoryUnitOfWork()
+    const useCase = new ProcessSettlementUseCase(uow)
+    await uow.settlements.save(makeItem('PENDING'))
+
+    const spy = jest.spyOn(SettlementItem.prototype, 'startProcessing')
+      .mockReturnValueOnce(err(new BusinessRuleError('forced startProcessing error')))
+
+    const result = await useCase.execute({ settlementItemId: SettlementItemId.of(ITEM_ID) })
+
+    spy.mockRestore()
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('BUSINESS_RULE_ERROR')
+    expect(uow.outbox.count()).toBe(0)
+  })
+
+  it('propaga BusinessRuleError se complete() falha inesperadamente', async () => {
+    const uow     = new InMemoryUnitOfWork()
+    const useCase = new ProcessSettlementUseCase(uow)
+    await uow.settlements.save(makeItem('PENDING'))
+
+    const spy = jest.spyOn(SettlementItem.prototype, 'complete')
+      .mockReturnValueOnce(err(new BusinessRuleError('forced complete error')))
+
+    const result = await useCase.execute({ settlementItemId: SettlementItemId.of(ITEM_ID) })
+
+    spy.mockRestore()
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('BUSINESS_RULE_ERROR')
+    expect(uow.outbox.count()).toBe(0)
   })
 
   it('o payload do OutboxEvent contém todos os campos necessários', async () => {

@@ -186,5 +186,20 @@ describe('RefundPaymentUseCase', () => {
 
       expect(uow.outbox.count()).toBe(0)
     })
+
+    it('propaga erro de SplitCalculator quando refundAmountCents é zero', async () => {
+      const { useCase } = makeSetup('CAPTURED')
+
+      // refundAmount (0) <= payment.amount (10_000) passa a validação de teto,
+      // mas SplitCalculator.calculate(0, rate) retorna err
+      const result = await useCase.execute({
+        paymentId:         PaymentId.of(PAYMENT_ID),
+        refundAmountCents: Cents.of(0),
+      })
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('BUSINESS_RULE_ERROR')
+    })
   })
 })
