@@ -256,6 +256,28 @@ Every decision has a cost. These were accepted explicitly:
 
 ---
 
+## Roadmap
+
+Phases 0–6 (documentation, foundation, domain, database, infrastructure, use cases and web layer) are complete, with 550+ tests passing. Next up:
+
+**Phase 7 — Frontend (in progress)**
+- [ ] Next.js 14 reconciliation dashboard (`http://localhost:3001`): transaction table, period filters and totals
+- [ ] Test checkout, completing the full flow: checkout → payment → webhook → ledger → dashboard
+
+**Operations and security**
+- [ ] Bull Board for queue monitoring (`http://localhost:3000/queues`)
+- [ ] Pre-built Grafana dashboard for the business metrics
+- [ ] JWT refresh token rotation
+- [ ] Per-IP rate limiting (in addition to per-merchant)
+
+**Documentation**
+- [ ] ADR index and `ADR-000` template for new decisions
+- [ ] Runbooks: `ledger-discrepancy.md` and `webhook-failures.md`
+
+The full phase-by-phase plan is in [docs/ROADMAP.md](docs/ROADMAP.md) (in Portuguese).
+
+---
+
 ## Documentation
 
 Detailed documentation lives in `docs/` (in Portuguese).
